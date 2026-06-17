@@ -1,0 +1,66 @@
+{
+  "name": "ssrf-guard-js",
+  "version": "0.1.0",
+  "description": "SSRF protection for JavaScript and TypeScript: URL policy validation, private-network blocking, redirect checks, and LLM tool-input guards.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/devslab-kr/ssrf-guard-js.git"
+  },
+  "bugs": {
+    "url": "https://github.com/devslab-kr/ssrf-guard-js/issues"
+  },
+  "homepage": "https://github.com/devslab-kr/ssrf-guard-js#readme",
+  "packageManager": "pnpm@9.12.3",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "keywords": [
+    "ssrf",
+    "security",
+    "safe-fetch",
+    "url-validation",
+    "llm",
+    "agent-tools"
+  ],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "verify": "pnpm typecheck && pnpm test && pnpm build"
+  },
+  "dependencies": {
+    "ipaddr.js": "^2.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "tsdown": "^0.22.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
