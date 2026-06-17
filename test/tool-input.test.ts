@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { guardToolInputJson, SsrfGuardError } from '../src/index.js';
+import { createGuardedToolHandler, guardToolInput, guardToolInputJson, SsrfGuardError } from '../src/index.js';
 
 const policy = { exactHosts: ['api.example.com'] };
 
@@ -51,5 +51,19 @@ describe('guardToolInputJson', () => {
   it('ignores non-http schemes', () => {
     expect(guardToolInputJson('{"to":"mailto:user@example.com"}', policy)).toBeNull();
     expect(guardToolInputJson('{"id":"urn:uuid:abc"}', policy)).toBeNull();
+  });
+
+  it('guards plain object tool input', () => {
+    const error = guardToolInput({ request: { target: 'https://evil.com/' } }, policy);
+    expect(error).toContain('"error":"ssrf_blocked"');
+  });
+
+  it('wraps agent tool handlers', async () => {
+    const handler = createGuardedToolHandler(policy, async (input: { url: string }) => `fetched ${input.url}`);
+
+    await expect(handler({ url: 'https://api.example.com/data' })).resolves.toBe(
+      'fetched https://api.example.com/data',
+    );
+    await expect(handler({ url: 'https://evil.com/data' })).resolves.toContain('"error":"ssrf_blocked"');
   });
 });

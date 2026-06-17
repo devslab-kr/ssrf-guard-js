@@ -19,8 +19,16 @@ export function guardToolInputJson(
     return null;
   }
 
+  return guardToolInput(parsed, policy, options);
+}
+
+export function guardToolInput(
+  input: unknown,
+  policy: UrlPolicyOptions | UrlPolicy,
+  options: { throwOnViolation?: boolean } = {},
+): string | null {
   const urlPolicy = policy instanceof UrlPolicy ? policy : new UrlPolicy(policy);
-  for (const candidate of collectUrlLikeStrings(parsed)) {
+  for (const candidate of collectUrlLikeStrings(input)) {
     try {
       urlPolicy.validate(candidate);
     } catch (error) {
@@ -33,6 +41,18 @@ export function guardToolInputJson(
   }
 
   return null;
+}
+
+export function createGuardedToolHandler<Input, Output>(
+  policy: UrlPolicyOptions | UrlPolicy,
+  handler: (input: Input) => Output | Promise<Output>,
+  options: { throwOnViolation?: boolean } = {},
+): (input: Input) => Promise<Output | string> {
+  return async (input: Input) => {
+    const violation = guardToolInput(input, policy, options);
+    if (violation) return violation;
+    return handler(input);
+  };
 }
 
 function collectUrlLikeStrings(value: unknown): string[] {

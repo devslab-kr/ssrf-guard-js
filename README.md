@@ -1,5 +1,7 @@
 # ssrf-guard-js
 
+[한국어](README.ko.md) | [Docs](https://devslab-kr.github.io/ssrf-guard-js/)
+
 SSRF protection for JavaScript and TypeScript.
 
 This is the JS/TS sibling of [`devslab-kr/ssrf-guard`](https://github.com/devslab-kr/ssrf-guard).
@@ -15,6 +17,9 @@ It ports the same core security model:
 ```bash
 pnpm add @devslab/ssrf-guard-js
 ```
+
+For a copy-paste tutorial, see the documentation site:
+https://devslab-kr.github.io/ssrf-guard-js/
 
 ## URL Policy
 
@@ -76,6 +81,90 @@ that the Java Apache HttpClient adapter uses. Treat `safeFetch` as a strong
 guard rail, but use strict allowlists or a dedicated egress service for
 high-risk arbitrary URL crawling.
 
+## Express
+
+```ts
+import express from 'express';
+import { createExpressUrlGuard } from '@devslab/ssrf-guard-js';
+
+const app = express();
+app.use(express.json());
+
+app.post(
+  '/crawl',
+  createExpressUrlGuard({
+    exactHosts: ['example.com'],
+    suffixes: ['example.com'],
+    allowedSchemes: ['https'],
+  }),
+  async (req, res) => {
+    res.json({ ok: true });
+  },
+);
+```
+
+The middleware scans `req.body` and `req.query` by default. It returns a
+structured `400` response when it finds a blocked URL.
+
+## Vite
+
+Use this when your Vite dev server has SSR/proxy endpoints that receive a URL
+and then fetch it server-side.
+
+```ts
+// vite.config.ts
+import { defineConfig } from 'vite';
+import { ssrfGuardVitePlugin } from '@devslab/ssrf-guard-js/vite';
+
+export default defineConfig({
+  plugins: [
+    ssrfGuardVitePlugin({
+      routes: ['/api/crawl'],
+      policy: {
+        suffixes: ['example.com'],
+        allowedSchemes: ['https'],
+      },
+    }),
+  ],
+});
+```
+
+The plugin scans query params named `url`, `target`, `uri`, and `href` by
+default. Example blocked request:
+
+```text
+/api/crawl?url=http://169.254.169.254/latest/meta-data/
+```
+
+## LangChain / Agent Tools
+
+`createGuardedToolHandler` wraps any object-input tool function without taking
+a hard dependency on LangChain.
+
+```ts
+import { DynamicStructuredTool } from '@langchain/core/tools';
+import { z } from 'zod';
+import { createGuardedToolHandler, safeFetch } from '@devslab/ssrf-guard-js';
+
+const policy = {
+  suffixes: ['example.com'],
+  allowedSchemes: ['https'],
+};
+
+export const fetchUrlTool = new DynamicStructuredTool({
+  name: 'fetch_url',
+  description: 'Fetch an allowed URL',
+  schema: z.object({ url: z.string().url() }),
+  func: createGuardedToolHandler(policy, async ({ url }) => {
+    const response = await safeFetch(url, policy);
+    return await response.text();
+  }),
+});
+```
+
+If the model tries to pass a private IP, metadata URL, or non-allowed host, the
+tool returns a structured `ssrf_blocked` JSON string instead of fetching it.
+
 ## Block Reasons
 
 Thrown `SsrfGuardError` instances expose stable `reason` values:
@@ -103,7 +192,7 @@ Publishing is handled by GitHub Actions.
 4. Create and push a matching tag, for example:
 
 ```bash
-git tag v0.1.0
+git tag v0.1.1
 git push origin main --tags
 ```
 

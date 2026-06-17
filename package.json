@@ -1,6 +1,6 @@
 {
   "name": "@devslab/ssrf-guard-js",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "SSRF protection for JavaScript and TypeScript: URL policy validation, private-network blocking, redirect checks, and LLM tool-input guards.",
   "license": "Apache-2.0",
   "type": "module",
@@ -11,7 +11,7 @@
   "bugs": {
     "url": "https://github.com/devslab-kr/ssrf-guard-js/issues"
   },
-  "homepage": "https://github.com/devslab-kr/ssrf-guard-js#readme",
+  "homepage": "https://devslab-kr.github.io/ssrf-guard-js/",
   "packageManager": "pnpm@9.12.3",
   "engines": {
     "node": ">=22.0.0"
@@ -21,8 +21,12 @@
     "security",
     "safe-fetch",
     "url-validation",
+    "express",
+    "vite",
+    "langchain",
     "llm",
-    "agent-tools"
+    "agent-tools",
+    "ai-agents"
   ],
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
@@ -37,16 +41,28 @@
         "types": "./dist/index.d.cts",
         "default": "./dist/index.cjs"
       }
+    },
+    "./vite": {
+      "import": {
+        "types": "./dist/vite.d.mts",
+        "default": "./dist/vite.mjs"
+      },
+      "require": {
+        "types": "./dist/vite.d.cts",
+        "default": "./dist/vite.cjs"
+      }
     }
   },
   "files": [
     "dist",
     "README.md",
+    "README.ko.md",
     "LICENSE",
     "NOTICE"
   ],
   "scripts": {
     "build": "tsdown",
+    "build:pages": "node scripts/build-pages.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "verify": "pnpm typecheck && pnpm test && pnpm build"
