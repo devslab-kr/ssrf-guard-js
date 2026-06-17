@@ -13,13 +13,13 @@ It ports the same core security model:
 ## Install
 
 ```bash
-pnpm add @devslab-kr/ssrf-guard-js
+pnpm add @devslab/ssrf-guard-js
 ```
 
 ## URL Policy
 
 ```ts
-import { validateUrl } from '@devslab-kr/ssrf-guard-js';
+import { validateUrl } from '@devslab/ssrf-guard-js';
 
 validateUrl('https://api.example.com/v1', {
   exactHosts: ['api.example.com'],
@@ -42,7 +42,7 @@ Defaults:
 ## LLM Tool Input Guard
 
 ```ts
-import { guardToolInputJson } from '@devslab-kr/ssrf-guard-js';
+import { guardToolInputJson } from '@devslab/ssrf-guard-js';
 
 const violation = guardToolInputJson(
   JSON.stringify({ request: { target: 'http://169.254.169.254/latest/meta-data/' } }),
@@ -60,7 +60,7 @@ array, or explanation field is still blocked.
 ## Guarded Fetch
 
 ```ts
-import { safeFetch } from '@devslab-kr/ssrf-guard-js';
+import { safeFetch } from '@devslab/ssrf-guard-js';
 
 const response = await safeFetch('https://api.example.com/data', {
   exactHosts: ['api.example.com'],
