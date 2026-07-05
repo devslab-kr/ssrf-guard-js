@@ -73,8 +73,11 @@ const response = await safeFetch('https://api.example.com/data', {
 });
 ```
 
-`safeFetch` validates the URL, checks DNS results for private/local IPs, and
-revalidates every redirect hop.
+`safeFetch` validates the URL, checks DNS results for private/local IPs
+(failing closed if any resolved address is private), and revalidates every
+redirect hop. On cross-origin redirects it strips `Authorization`,
+`Proxy-Authorization`, and `Cookie` headers, and it downgrades `303` (and
+`301`/`302` `POST`) redirects to `GET` without replaying the request body.
 
 Node's built-in `fetch` does not expose the same socket-level IP pinning API
 that the Java Apache HttpClient adapter uses. Treat `safeFetch` as a strong
