@@ -34,6 +34,28 @@ describe('UrlPolicy', () => {
     );
   });
 
+  it('treats portless URLs as the scheme default port', () => {
+    const httpsOnly = policy({ allowedPorts: [443] });
+    expect(() => httpsOnly.validate('https://api.example.com/')).not.toThrow();
+    expect(() => httpsOnly.validate('http://api.example.com/')).toThrow(
+      expect.objectContaining({ reason: 'blocked_port' }),
+    );
+
+    const httpOnly = policy({ allowedPorts: [80] });
+    expect(() => httpOnly.validate('http://api.example.com/')).not.toThrow();
+  });
+
+  it('preserves the original parse error as cause on invalid URLs', () => {
+    try {
+      policy().validate('not a url at all');
+      expect.unreachable('expected validate to throw');
+    } catch (error) {
+      expect(error).toBeInstanceOf(SsrfGuardError);
+      expect((error as SsrfGuardError).reason).toBe('blocked_other');
+      expect((error as SsrfGuardError).cause).toBeDefined();
+    }
+  });
+
   it.each([
     'http://127.0.0.1/',
     'http://0.0.0.0/',

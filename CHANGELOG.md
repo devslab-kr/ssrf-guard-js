@@ -20,11 +20,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `safeFetch` now follows the fetch spec's redirect semantics: `303` (and
   `301`/`302` for `POST`) downgrade to `GET` and drop the request body instead
   of replaying it against the redirect target.
+- The tool-input URL scanner now collects **any** `scheme://` URL (not just
+  `http`/`https`), so `file://`, `ftp://`, and `gopher://` URLs in tool input
+  are validated and rejected by the policy's `allowedSchemes` instead of
+  passing the guard silently. Protocol-relative `//host` strings are also
+  collected and validated against the host policy. Authority-less schemes
+  (`mailto:`, `urn:`, `data:`) remain ignored.
+
+### Changed
+
+- Portless URLs now count as the scheme's default port (`http`/`ws` → `80`,
+  `https`/`wss` → `443`) for the `allowedPorts` check, so
+  `allowedPorts: [443]` alone works for HTTPS-only policies. `-1` still
+  matches portless URLs of schemes without a known default.
 
 ### Fixed
 
 - `safeFetch` cancels redirect response bodies before following the next hop,
   releasing the underlying connection.
+- `SsrfGuardError` thrown for unparseable URLs now preserves the original
+  parse error as `cause`.
 
 ## [0.1.2] - 2026-07-05
 
