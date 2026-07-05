@@ -8,6 +8,8 @@ export interface SafeFetchOptions extends RequestInit {
   maxRedirects?: number;
 }
 
+const SENSITIVE_HEADERS = ['authorization', 'proxy-authorization', 'cookie'];
+
 export async function safeFetch(
   input: string | URL,
   policy: UrlPolicyOptions | UrlPolicy,
@@ -15,20 +17,26 @@ export async function safeFetch(
 ): Promise<Response> {
   const urlPolicy = policy instanceof UrlPolicy ? policy : new UrlPolicy(policy);
   let url = validateUrl(input, urlPolicy);
-  const maxRedirects = init.maxRedirects ?? 5;
+  const { maxRedirects = 5, ...requestInit } = init;
+  const headers = new Headers(requestInit.headers);
+  let method = (requestInit.method ?? 'GET').toUpperCase();
+  let body = requestInit.body ?? null;
 
   for (let redirects = 0; redirects <= maxRedirects; redirects += 1) {
     await assertResolvedIpsAllowed(url, urlPolicy);
-    const response = await fetch(url, { ...init, redirect: 'manual' });
+    const response = await fetch(url, { ...requestInit, method, body, headers, redirect: 'manual' });
 
     if (!isRedirect(response.status)) return response;
 
     const location = response.headers.get('location');
     if (!location) return response;
 
+    await response.body?.cancel();
+
     const nextUrl = new URL(location, url);
+    let validated: URL;
     try {
-      url = validateUrl(nextUrl, urlPolicy);
+      validated = validateUrl(nextUrl, urlPolicy);
     } catch (error) {
       if (error instanceof SsrfGuardError) {
         throw new SsrfGuardError('blocked_redirect', `Blocked redirect: ${error.message}`, {
@@ -39,6 +47,28 @@ export async function safeFetch(
       }
       throw error;
     }
+
+    // Per the fetch spec's redirect handling: 303 always downgrades to GET;
+    // 301/302 downgrade POST to GET. The body must not be replayed.
+    if (
+      (response.status === 303 && method !== 'GET' && method !== 'HEAD') ||
+      ((response.status === 301 || response.status === 302) && method === 'POST')
+    ) {
+      method = 'GET';
+      body = null;
+      const contentHeaders: string[] = [];
+      headers.forEach((_value, name) => {
+        if (name.startsWith('content-')) contentHeaders.push(name);
+      });
+      for (const name of contentHeaders) headers.delete(name);
+    }
+
+    // Credentials must not leak to a different origin on redirect.
+    if (url.origin !== validated.origin) {
+      for (const name of SENSITIVE_HEADERS) headers.delete(name);
+    }
+
+    url = validated;
   }
 
   throw new SsrfGuardError('blocked_redirect', `Too many redirects: ${maxRedirects}`, {
@@ -59,13 +89,19 @@ export async function assertResolvedIpsAllowed(url: URL, policy: UrlPolicy): Pro
   }
 
   const addresses = await lookup(host, { all: true, verbatim: true });
-  const allowed = addresses.filter((address) => !isPrivateOrLocalIp(address.address));
-  if (allowed.length === 0) {
-    throw new SsrfGuardError('blocked_private_ip', `DNS resolved only to private/local addresses: ${host}`, {
-      scheme: url.protocol.replace(/:$/, ''),
-      host,
-      url: url.toString(),
-    });
+  const blocked = addresses.find((address) => isPrivateOrLocalIp(address.address));
+  if (blocked || addresses.length === 0) {
+    throw new SsrfGuardError(
+      'blocked_private_ip',
+      blocked
+        ? `DNS resolved a private/local address for ${host}: ${blocked.address}`
+        : `DNS returned no addresses for ${host}`,
+      {
+        scheme: url.protocol.replace(/:$/, ''),
+        host,
+        url: url.toString(),
+      },
+    );
   }
 }
 
