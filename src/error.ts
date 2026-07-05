@@ -9,9 +9,9 @@ export class SsrfGuardError extends Error {
   constructor(
     reason: BlockReason,
     message: string,
-    options: { scheme?: string | null; host?: string | null; url?: string | null } = {},
+    options: { scheme?: string | null; host?: string | null; url?: string | null; cause?: unknown } = {},
   ) {
-    super(message);
+    super(message, options.cause !== undefined ? { cause: options.cause } : undefined);
     this.name = 'SsrfGuardError';
     this.reason = reason;
     this.scheme = options.scheme ?? null;

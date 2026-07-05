@@ -61,11 +61,22 @@ function collectUrlLikeStrings(value: unknown): string[] {
   return out;
 }
 
+// Any scheme followed by an authority (`scheme://`). Schemes without an
+// authority (mailto:, urn:, data:) are not URL-fetch surfaces and stay ignored.
+const SCHEME_URL = /^[a-z][a-z0-9+.-]*:\/\//i;
+// Protocol-relative `//authority` — only when the authority looks like a host
+// (contains a dot or port, or is localhost), so `// plain comments` stay ignored.
+const PROTOCOL_RELATIVE = /^\/\/(?:\[[^\]]+\]|[^\s/?#]*(?:\.|:)[^\s/?#]*|localhost)(?:[/?#]|$)/i;
+
 function walk(value: unknown, out: string[]): void {
   if (typeof value === 'string') {
     const trimmed = value.trim();
-    const lower = trimmed.toLowerCase();
-    if (lower.startsWith('http://') || lower.startsWith('https://')) out.push(trimmed);
+    if (SCHEME_URL.test(trimmed)) {
+      out.push(trimmed);
+    } else if (PROTOCOL_RELATIVE.test(trimmed)) {
+      // Validate the authority as if the URL resolves to https.
+      out.push(`https:${trimmed}`);
+    }
     return;
   }
 

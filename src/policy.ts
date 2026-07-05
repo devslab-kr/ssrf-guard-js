@@ -68,7 +68,7 @@ export class UrlPolicy {
       });
     }
 
-    const port = url.port === '' ? -1 : Number(url.port);
+    const port = url.port === '' ? defaultPortForScheme(scheme) : Number(url.port);
     if (!this.options.allowedPorts.has(port)) {
       throw new SsrfGuardError('blocked_port', `Blocked port: ${port}`, {
         scheme,
@@ -85,6 +85,19 @@ export function validateUrl(input: string | URL, policy: UrlPolicyOptions | UrlP
   return policy instanceof UrlPolicy ? policy.validate(input) : new UrlPolicy(policy).validate(input);
 }
 
+function defaultPortForScheme(scheme: string): number {
+  switch (scheme) {
+    case 'http':
+    case 'ws':
+      return 80;
+    case 'https':
+    case 'wss':
+      return 443;
+    default:
+      return -1;
+  }
+}
+
 function toUrl(input: string | URL): URL {
   if (input instanceof URL) return input;
   try {
@@ -92,6 +105,7 @@ function toUrl(input: string | URL): URL {
   } catch (error) {
     throw new SsrfGuardError('blocked_other', `Invalid URL: ${input}`, {
       url: input,
+      cause: error,
     });
   }
 }

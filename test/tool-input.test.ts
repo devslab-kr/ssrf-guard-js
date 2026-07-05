@@ -48,9 +48,35 @@ describe('guardToolInputJson', () => {
     );
   });
 
-  it('ignores non-http schemes', () => {
+  it('ignores schemes without an authority', () => {
     expect(guardToolInputJson('{"to":"mailto:user@example.com"}', policy)).toBeNull();
     expect(guardToolInputJson('{"id":"urn:uuid:abc"}', policy)).toBeNull();
+  });
+
+  it('blocks non-http scheme URLs with an authority', () => {
+    const ftp = guardToolInput({ url: 'ftp://internal.host/file' }, policy);
+    expect(ftp).toContain('"reason":"blocked_scheme"');
+
+    const file = guardToolInput({ url: 'file:///etc/passwd' }, policy);
+    expect(file).toContain('"reason":"blocked_scheme"');
+
+    const gopher = guardToolInput({ url: 'gopher://10.0.0.5:70/x' }, policy);
+    expect(gopher).toContain('"reason":"blocked_scheme"');
+  });
+
+  it('blocks protocol-relative URLs against the host policy', () => {
+    const blocked = guardToolInput({ url: '//169.254.169.254/latest/meta-data/' }, policy);
+    expect(blocked).toContain('"reason":"blocked_ip_literal"');
+
+    const localhost = guardToolInput({ url: '//localhost:3000/admin' }, policy);
+    expect(localhost).toContain('"error":"ssrf_blocked"');
+
+    expect(guardToolInput({ url: '//api.example.com/v1' }, policy)).toBeNull();
+  });
+
+  it('does not treat comment-like strings as protocol-relative URLs', () => {
+    expect(guardToolInput({ note: '// this is a comment' }, policy)).toBeNull();
+    expect(guardToolInput({ note: '//comment' }, policy)).toBeNull();
   });
 
   it('blocks uppercase and mixed-case scheme URLs', () => {

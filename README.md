@@ -39,7 +39,10 @@ you configure one.
 Defaults:
 
 - `allowedSchemes`: `['http', 'https']`
-- `allowedPorts`: `[-1, 80, 443]`
+- `allowedPorts`: `[-1, 80, 443]` — URLs without an explicit port count as the
+  scheme's default port (`http`/`ws` → `80`, `https`/`wss` → `443`), so
+  `allowedPorts: [443]` alone is enough for HTTPS-only policies. `-1` matches
+  portless URLs of schemes without a known default.
 - `rejectIpLiteralHosts`: `true`
 - `rejectUserInfo`: `true`
 - `blockPrivateNetworks`: `true`
@@ -60,7 +63,10 @@ if (violation) {
 ```
 
 The guard walks the entire JSON tree. A bad URL hidden inside a nested object,
-array, or explanation field is still blocked.
+array, or explanation field is still blocked. The scanner collects any
+`scheme://` URL (the policy's `allowedSchemes` decides the outcome, so
+`file://` or `gopher://` are rejected by default) and protocol-relative
+`//host` strings, which are validated against the host policy.
 
 ## Guarded Fetch
 
