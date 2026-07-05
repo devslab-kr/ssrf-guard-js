@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Optional DNS pinning for `safeFetch`, closing the DNS-rebinding TOCTOU
+  window. When the optional `undici` peer dependency is installed, the
+  resolved addresses are validated **inside the socket connector**, so the
+  check and the connection share a single DNS resolution. New
+  `pinDns` option: `true` requires pinning (throws without `undici`),
+  `false` disables it, unset pins automatically when `undici` is available.
+
 ## [0.2.0] - 2026-07-05
 
 Stricter-by-default release. Things that may need attention when upgrading:
