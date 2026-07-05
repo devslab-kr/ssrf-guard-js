@@ -6,6 +6,13 @@ vi.mock('node:dns/promises', () => ({
   lookup: vi.fn(),
 }));
 
+// These tests stub global fetch and mock DNS, so force the unpinned code path
+// by making the optional undici import fail. Pinned mode is covered by the
+// integration tests in safe-fetch-pinned.test.ts.
+vi.mock('undici', () => {
+  throw new Error('undici unavailable in unit tests');
+});
+
 const lookupMock = vi.mocked(lookup);
 const fetchMock = vi.fn();
 
@@ -206,6 +213,13 @@ describe('safeFetch', () => {
     const second = fetchMock.mock.calls[1]![1];
     expect(second.method).toBe('GET');
     expect(second.body).toBeNull();
+  });
+
+  it('throws a clear error when pinDns is required but undici is missing', async () => {
+    await expect(
+      safeFetch('https://api.example.com/data', policy, { pinDns: true }),
+    ).rejects.toMatchObject({ reason: 'blocked_other' });
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('blocks the initial request when DNS includes a private address', async () => {

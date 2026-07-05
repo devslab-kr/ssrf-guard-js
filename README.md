@@ -85,8 +85,27 @@ redirect hop. On cross-origin redirects it strips `Authorization`,
 `Proxy-Authorization`, and `Cookie` headers, and it downgrades `303` (and
 `301`/`302` `POST`) redirects to `GET` without replaying the request body.
 
-Node's built-in `fetch` does not expose the same socket-level IP pinning API
-that the Java Apache HttpClient adapter uses. Treat `safeFetch` as a strong
+### DNS pinning (optional)
+
+By default the DNS check and the actual connection resolve the hostname
+separately, leaving a small DNS-rebinding window. Install the optional
+[`undici`](https://www.npmjs.com/package/undici) dependency to close it:
+
+```bash
+pnpm add undici
+```
+
+When `undici` is present, `safeFetch` automatically validates the resolved
+addresses **inside the socket connector**, so the check and the connection
+share a single DNS resolution — the same socket-level pinning the Java Apache
+HttpClient adapter uses. Control it explicitly with the `pinDns` option:
+
+```ts
+await safeFetch(url, policy, { pinDns: true }); // require pinning (throws without undici)
+await safeFetch(url, policy, { pinDns: false }); // force check-then-fetch
+```
+
+Without `undici`, `safeFetch` falls back to check-then-fetch. That is a strong
 guard rail, but use strict allowlists or a dedicated egress service for
 high-risk arbitrary URL crawling.
 
