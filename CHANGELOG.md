@@ -5,7 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.0] - 2026-07-05
+
+Stricter-by-default release. Things that may need attention when upgrading:
+
+- Tool inputs containing non-http `scheme://` URLs (e.g. `s3://`, custom
+  protocols) are now flagged unless the scheme is in `allowedSchemes`.
+- Hosts whose DNS answer mixes public and private addresses are now blocked
+  by `safeFetch` (previously allowed if any address was public).
+- `safeFetch` no longer replays `Authorization`/`Cookie` headers or request
+  bodies across cross-origin redirects — if you depended on that, send the
+  follow-up request explicitly.
 
 ### Security
 

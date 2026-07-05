@@ -1,6 +1,6 @@
 {
   "name": "@devslab/ssrf-guard-js",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "SSRF protection for JavaScript and TypeScript: URL policy validation, private-network blocking, redirect checks, and LLM tool-input guards.",
   "license": "Apache-2.0",
   "type": "module",
