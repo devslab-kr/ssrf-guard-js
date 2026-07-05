@@ -53,6 +53,19 @@ describe('guardToolInputJson', () => {
     expect(guardToolInputJson('{"id":"urn:uuid:abc"}', policy)).toBeNull();
   });
 
+  it('blocks uppercase and mixed-case scheme URLs', () => {
+    const upper = guardToolInputJson('{"url":"HTTP://169.254.169.254/latest/meta-data/"}', policy);
+    expect(upper).toContain('"error":"ssrf_blocked"');
+    expect(upper).toContain('"reason":"blocked_ip_literal"');
+
+    const mixed = guardToolInput({ url: 'Https://evil.com/' }, policy);
+    expect(mixed).toContain('"error":"ssrf_blocked"');
+  });
+
+  it('still allows whitelisted URLs with uppercase schemes', () => {
+    expect(guardToolInput({ url: 'HTTPS://api.example.com/v1' }, policy)).toBeNull();
+  });
+
   it('guards plain object tool input', () => {
     const error = guardToolInput({ request: { target: 'https://evil.com/' } }, policy);
     expect(error).toContain('"error":"ssrf_blocked"');

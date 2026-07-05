@@ -64,7 +64,8 @@ function collectUrlLikeStrings(value: unknown): string[] {
 function walk(value: unknown, out: string[]): void {
   if (typeof value === 'string') {
     const trimmed = value.trim();
-    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) out.push(trimmed);
+    const lower = trimmed.toLowerCase();
+    if (lower.startsWith('http://') || lower.startsWith('https://')) out.push(trimmed);
     return;
   }
 
