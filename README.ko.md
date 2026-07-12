@@ -66,12 +66,89 @@ const response = await safeFetch('https://api.example.com/data', {
 });
 ```
 
-`safeFetch`는 URL을 검증하고, DNS 결과가 private/local IP인지 확인하고,
-redirect hop마다 다시 검증합니다.
+`safeFetch`는 URL을 검증하고, DNS 결과가 private/local IP인지 확인하고
+(resolve된 주소 중 하나라도 private이면 fail-closed), redirect hop마다 다시
+검증합니다. Cross-origin redirect에서는 `Authorization` / `Proxy-Authorization` /
+`Cookie` 헤더를 제거하고, `303`(그리고 `POST`의 `301`/`302`)은 body 재전송 없이
+`GET`으로 다운그레이드합니다.
 
-Node의 built-in `fetch`는 Java Apache HttpClient처럼 socket-level IP pinning API를
-노출하지 않습니다. 위험도가 높은 임의 URL 크롤링은 strict allowlist나 별도 guarded
-egress service를 사용하세요.
+### DNS pinning (optional)
+
+기본 동작은 DNS 검증과 실제 연결이 hostname을 따로 resolve하므로 작은
+DNS-rebinding 창이 남습니다. optional [`undici`](https://www.npmjs.com/package/undici)
+의존성을 설치하면 이 창이 닫힙니다:
+
+```bash
+pnpm add undici
+```
+
+`undici`가 있으면 `safeFetch`는 resolve된 주소를 **socket connector 안에서**
+검증합니다 — 검증과 연결이 하나의 DNS resolution을 공유하는, Java Apache
+HttpClient adapter와 같은 socket-level pinning입니다. `pinDns` 옵션으로 명시적
+제어가 가능합니다:
+
+```ts
+await safeFetch(url, policy, { pinDns: true }); // pinning 필수 (undici 없으면 throw)
+await safeFetch(url, policy, { pinDns: false }); // check-then-fetch 강제
+```
+
+`undici` 없이는 check-then-fetch로 동작합니다. 그것도 강한 가드레일이지만,
+위험도가 높은 임의 URL 크롤링은 strict allowlist나 별도 guarded egress
+service를 사용하세요.
+
+## Runtime 지원: Node vs Cloudflare Workers
+
+모든 보장이 모든 runtime에서 살아남는 건 아닙니다. 어느 절반을 쓰게 되는지
+알고 시작하세요:
+
+| Surface | Node | Cloudflare Workers |
+| --- | --- | --- |
+| `validateUrl` / `UrlPolicy` / `HostPolicy` | ✅ | ✅ (순수 URL/문자열 검증) |
+| `guardToolInput` / `guardToolInputJson` / `createGuardedToolHandler` | ✅ | ✅ |
+| `safeFetch` (DNS 검증, redirect 재검증) | ✅ | ❌ 런타임에서 throw |
+| `undici` DNS pinning | ✅ optional | ❌ |
+
+**Workers에서 `safeFetch`가 동작할 수 없는 이유.** `safeFetch`는 연결 전에
+`node:dns/promises`의 `lookup`으로 대상을 resolve합니다. Workers의
+`node:dns`(`nodejs_compat` flag)는 `resolve*` 계열을 DNS-over-HTTPS로
+구현하지만 `lookup`은 `Not implemented`를 던집니다 — 설령 resolve가 되더라도
+Workers의 `fetch`는 내부적으로 자체 resolution을 수행하므로, Node의 `undici`
+connector처럼 검증한 IP를 socket에 고정하는 것이 userland에서 불가능합니다.
+check-then-fetch 간극은 Worker 안에서는 닫을 수 없습니다.
+
+**Workers에서는 이렇게 하세요.** URL-time 검증 + 모든 redirect hop 재검증을
+직접 수행하고, strict allowlist를 1차 방어선으로 삼으세요:
+
+```ts
+import { validateUrl, type UrlPolicyOptions } from '@devslab/ssrf-guard-js';
+
+const MAX_REDIRECTS = 5;
+
+async function guardedWorkersFetch(input: string, policy: UrlPolicyOptions): Promise<Response> {
+  let url = validateUrl(input, policy);
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
+    const res = await fetch(url, { redirect: 'manual' });
+    if (res.status < 300 || res.status >= 400) return res;
+    const location = res.headers.get('location');
+    if (!location) return res;
+    url = validateUrl(new URL(location, url), policy); // 모든 hop이 같은 policy를 다시 통과
+  }
+  throw new Error(`too many redirects for ${input}`);
+}
+```
+
+"고객이 제출한 자기 사이트 크롤링" 흐름이라면 allowlist를 하드코딩하지 말고
+제출된 URL에서 유도하세요 — 한 번 검증한 뒤, redirect를 포함한 크롤링 전체를
+그 도메인에 잠급니다:
+
+```ts
+const first = validateUrl(input, { rejectIpLiteralHosts: true, suffixes: [new URL(input).hostname] });
+const policy = { allowedSchemes: ['https'], suffixes: [first.hostname.replace(/^www\./, '')] };
+```
+
+Workers에서 진짜 임의 URL fetch가 필요하면, `pinDns: true`로 `safeFetch`를
+호출하는 작은 Node 기반 egress service를 거치세요 — Worker는 egress service와만
+통신하고, 사용자 제공 URL에는 직접 닿지 않습니다.
 
 ## Express
 
