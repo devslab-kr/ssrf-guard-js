@@ -6,7 +6,7 @@
     <title>ssrf-guard-js</title>
     <meta
       name="description"
-      content="JavaScript and TypeScript SSRF guard: validateUrl, safeFetch, and LLM tool input URL guard."
+      content="JavaScript and TypeScript SSRF guard: validateUrl, safeFetch, guardedFetch for Workers/edge, and LLM tool input URL guard."
     />
     <style>
       :root {
@@ -289,10 +289,13 @@
         <p class="lead">
           `@devslab/ssrf-guard-js`는 TypeScript/JavaScript용 SSRF guard입니다.
           URL allowlist, private IP 차단, redirect 재검증, LLM tool input 검사를 제공합니다.
+          Node에서는 DNS 검증·pinning까지(`safeFetch`), Cloudflare Workers·브라우저 같은
+          edge 런타임에서는 URL-time 검증 + redirect 재검증(`guardedFetch`)으로 동작합니다.
           아래 예제는 그대로 복사해서 실행할 수 있습니다.
         </p>
         <div class="badges">
           <span class="badge">Node 22+</span>
+          <span class="badge">Workers / Edge</span>
           <span class="badge">TypeScript ready</span>
           <span class="badge">Apache-2.0</span>
           <span class="badge">LLM tool guard</span>
@@ -396,9 +399,38 @@ const text = await response.text();
 console.log(text);</code></pre>
 
         <div class="note">
-          Node의 built-in `fetch`는 Java Apache HttpClient처럼 검증한 IP로 socket을 고정하는 API를 제공하지 않습니다.
+          optional `undici` 의존성을 설치하면 `safeFetch`가 DNS 검증과 socket 연결을 하나의
+          resolution으로 고정(pinning)해 DNS-rebinding 창을 닫습니다 (`pinDns` 옵션).
           위험도가 높은 임의 URL 크롤링은 strict allowlist 또는 별도 guarded egress service를 사용하세요.
         </div>
+
+        <h3>`guardedFetch(input, policy, init?)` — Workers / Edge</h3>
+        <p>
+          `safeFetch`의 DNS 검증을 뺀, 어디서나 도는 guarded fetch입니다. redirect hop마다
+          policy를 다시 통과시키고, cross-origin redirect에서 credential 헤더를 제거합니다.
+          Cloudflare Workers처럼 `dns.lookup`이 없는 런타임에서 쓰세요 — allowlist가 1차
+          방어선이고, 빈 allowlist는 아무것도 허용하지 않습니다 (fail-closed).
+        </p>
+        <pre><button class="copy">Copy</button><code>import { guardedFetch } from '@devslab/ssrf-guard-js';
+
+const response = await guardedFetch('https://api.example.com/data', {
+  exactHosts: ['api.example.com'],
+  allowedSchemes: ['https'],
+});</code></pre>
+
+        <h3>`sameSitePolicy(url, overrides?)`</h3>
+        <p>
+          "사용자가 제출한 자기 사이트 크롤링" 흐름을 위한 policy 헬퍼입니다. 제출된 URL의
+          도메인으로 allowlist를 만들어, redirect를 포함한 fetch 전체를 그 도메인에 잠급니다
+          (`www.`는 벗겨서 apex ↔ www redirect 허용). 특정 host를 더 열고 싶으면 overrides의
+          `exactHosts`/`suffixes`에 추가하면 됩니다 — bypass도 policy 안에서 관리됩니다.
+        </p>
+        <pre><button class="copy">Copy</button><code>import { guardedFetch, sameSitePolicy } from '@devslab/ssrf-guard-js';
+
+const input = 'https://www.customer-site.example/about';
+const response = await guardedFetch(input, sameSitePolicy(input, {
+  allowedSchemes: ['https'],
+}));</code></pre>
       </section>
 
       <section id="integrations">
