@@ -8,6 +8,9 @@ export {
   normalizeHost,
 } from './net.js';
 export { UrlPolicy, validateUrl } from './policy.js';
+export { guardedFetch, sameSitePolicy } from './guarded-fetch.js';
+export type { GuardedFetchOptions } from './guarded-fetch.js';
+export type { FetchImpl } from './redirect.js';
 export { assertResolvedIpsAllowed, safeFetch } from './safe-fetch.js';
 export { createGuardedToolHandler, guardToolInput, guardToolInputJson } from './tool-input.js';
 export type {
