@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `guardedFetch` — a runtime-agnostic guarded fetch for environments that
+  cannot run `safeFetch`'s DNS checks (Cloudflare Workers, browsers, edge
+  runtimes). Same redirect revalidation, cross-origin credential stripping,
+  and `303`/`301`/`302`-`POST` method-downgrade semantics as `safeFetch`,
+  minus DNS resolution and IP pinning — the policy allowlist is the primary
+  control. Accepts a `fetchImpl` override for tests and instrumented clients.
+- `sameSitePolicy(url, overrides?)` — derives a `UrlPolicyOptions` allowlist
+  from a submitted URL, locking the whole fetch (redirects included) to that
+  domain with a leading `www.` stripped. Overrides merge additively, so
+  extra hosts can be allowlisted alongside.
+
+### Changed
+
+- `node:dns` is now imported lazily. Importing the package no longer
+  requires a functional `node:dns` module — on runtimes without one,
+  `safeFetch` throws a typed `SsrfGuardError` directing callers to
+  `guardedFetch` instead of failing at module load.
+- `safeFetch` and `guardedFetch` share one redirect-revalidation loop
+  (internal refactor; behavior unchanged, covered by the existing suite).
+
 ## [0.3.0] - 2026-07-05
 
 ### Added

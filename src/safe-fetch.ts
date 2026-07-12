@@ -1,7 +1,7 @@
-import { lookup } from 'node:dns/promises';
 import { SsrfGuardError } from './error.js';
 import { isPrivateOrLocalIp, normalizeHost } from './net.js';
 import { UrlPolicy, validateUrl } from './policy.js';
+import { followRedirectsGuarded, type FetchImpl } from './redirect.js';
 import type { UrlPolicyOptions } from './types.js';
 
 export interface SafeFetchOptions extends RequestInit {
@@ -18,16 +18,40 @@ export interface SafeFetchOptions extends RequestInit {
   pinDns?: boolean;
 }
 
-const SENSITIVE_HEADERS = ['authorization', 'proxy-authorization', 'cookie'];
-
-type FetchLike = (
-  input: string | URL,
-  init: RequestInit & { dispatcher?: unknown },
-) => Promise<Response>;
-
 interface DnsAddress {
   address: string;
   family: number;
+}
+
+type LookupFn = (
+  hostname: string,
+  options: { all: true; verbatim: true },
+) => Promise<DnsAddress[]>;
+
+// node:dns is imported lazily so merely loading this module (it is
+// re-exported from the package index) works on runtimes without a
+// functional dns.lookup — Workers, browsers, Deno. Calling safeFetch
+// there fails with a pointer to guardedFetch instead of a load error.
+let lookupPromise: Promise<LookupFn | null> | undefined;
+
+function loadLookup(): Promise<LookupFn | null> {
+  lookupPromise ??= import('node:dns/promises').then(
+    (module) => module.lookup as unknown as LookupFn,
+    () => null,
+  );
+  return lookupPromise;
+}
+
+async function requireLookup(url: URL): Promise<LookupFn> {
+  const lookup = await loadLookup();
+  if (!lookup) {
+    throw new SsrfGuardError(
+      'blocked_other',
+      'safeFetch requires node:dns (Node.js). On runtimes without it — Cloudflare Workers, browsers — use guardedFetch with a strict allowlist instead.',
+      { url: url.toString() },
+    );
+  }
+  return lookup;
 }
 
 type ConnectorLookup = (
@@ -38,7 +62,7 @@ type ConnectorLookup = (
 
 interface UndiciLike {
   Agent: new (options: { connect: { lookup: ConnectorLookup } }) => object;
-  fetch: FetchLike;
+  fetch: FetchImpl;
 }
 
 let undiciPromise: Promise<UndiciLike | null> | undefined;
@@ -64,44 +88,55 @@ function getPinnedAgent(undici: UndiciLike, policy: UrlPolicy): object {
 
 function createValidatingLookup(policy: UrlPolicy): ConnectorLookup {
   return (hostname, options, callback) => {
-    lookup(hostname, { all: true, verbatim: true }).then(
-      (addresses) => {
-        if (policy.options.blockPrivateNetworks) {
-          const blocked = addresses.find((address) => isPrivateOrLocalIp(address.address));
-          if (blocked) {
+    loadLookup()
+      .then((lookup) => {
+        if (!lookup) {
+          throw new SsrfGuardError(
+            'blocked_other',
+            'safeFetch requires node:dns (Node.js) for its DNS checks',
+            { host: hostname },
+          );
+        }
+        return lookup(hostname, { all: true, verbatim: true });
+      })
+      .then(
+        (addresses) => {
+          if (policy.options.blockPrivateNetworks) {
+            const blocked = addresses.find((address) => isPrivateOrLocalIp(address.address));
+            if (blocked) {
+              callback(
+                new SsrfGuardError(
+                  'blocked_private_ip',
+                  `DNS resolved a private/local address for ${hostname}: ${blocked.address}`,
+                  { host: hostname },
+                ),
+              );
+              return;
+            }
+          }
+
+          const candidates =
+            options.family && addresses.some((address) => address.family === options.family)
+              ? addresses.filter((address) => address.family === options.family)
+              : addresses;
+          const picked = candidates[0];
+          if (!picked) {
             callback(
-              new SsrfGuardError(
-                'blocked_private_ip',
-                `DNS resolved a private/local address for ${hostname}: ${blocked.address}`,
-                { host: hostname },
-              ),
+              new SsrfGuardError('blocked_private_ip', `DNS returned no addresses for ${hostname}`, {
+                host: hostname,
+              }),
             );
             return;
           }
-        }
 
-        const candidates =
-          options.family && addresses.some((address) => address.family === options.family)
-            ? addresses.filter((address) => address.family === options.family)
-            : addresses;
-        const picked = candidates[0];
-        if (!picked) {
-          callback(
-            new SsrfGuardError('blocked_private_ip', `DNS returned no addresses for ${hostname}`, {
-              host: hostname,
-            }),
-          );
-          return;
-        }
-
-        if (options.all) {
-          callback(null, [{ address: picked.address, family: picked.family }]);
-        } else {
-          callback(null, picked.address, picked.family);
-        }
-      },
-      (error) => callback(error as Error),
-    );
+          if (options.all) {
+            callback(null, [{ address: picked.address, family: picked.family }]);
+          } else {
+            callback(null, picked.address, picked.family);
+          }
+        },
+        (error) => callback(error as Error),
+      );
   };
 }
 
@@ -120,11 +155,8 @@ export async function safeFetch(
   init: SafeFetchOptions = {},
 ): Promise<Response> {
   const urlPolicy = policy instanceof UrlPolicy ? policy : new UrlPolicy(policy);
-  let url = validateUrl(input, urlPolicy);
+  const url = validateUrl(input, urlPolicy);
   const { maxRedirects = 5, pinDns, ...requestInit } = init;
-  const headers = new Headers(requestInit.headers);
-  let method = (requestInit.method ?? 'GET').toUpperCase();
-  let body = requestInit.body ?? null;
 
   const undici = pinDns === false ? null : await loadUndici();
   if (pinDns === true && !undici) {
@@ -134,78 +166,23 @@ export async function safeFetch(
       { url: url.toString() },
     );
   }
-  const doFetch: FetchLike = undici ? undici.fetch : fetch;
+  const fetchImpl: FetchImpl = undici ? undici.fetch : (u, i) => fetch(u, i);
   const dispatcher = undici ? getPinnedAgent(undici, urlPolicy) : undefined;
 
-  for (let redirects = 0; redirects <= maxRedirects; redirects += 1) {
+  return followRedirectsGuarded({
+    url,
+    policy: urlPolicy,
+    init: requestInit,
+    maxRedirects,
+    fetchImpl,
     // Unpinned mode checks DNS before connecting; pinned mode validates inside
     // the connector's lookup, so check and connection share one resolution.
-    if (!undici) await assertResolvedIpsAllowed(url, urlPolicy);
-
-    let response: Response;
-    try {
-      response = await doFetch(url, {
-        ...requestInit,
-        method,
-        body,
-        headers,
-        redirect: 'manual',
-        ...(dispatcher ? { dispatcher } : {}),
-      });
-    } catch (error) {
-      // Pinned lookups surface SsrfGuardError wrapped in undici's fetch error.
-      const guardError = findGuardError(error);
-      if (guardError) throw guardError;
-      throw error;
-    }
-
-    if (!isRedirect(response.status)) return response;
-
-    const location = response.headers.get('location');
-    if (!location) return response;
-
-    await response.body?.cancel();
-
-    const nextUrl = new URL(location, url);
-    let validated: URL;
-    try {
-      validated = validateUrl(nextUrl, urlPolicy);
-    } catch (error) {
-      if (error instanceof SsrfGuardError) {
-        throw new SsrfGuardError('blocked_redirect', `Blocked redirect: ${error.message}`, {
-          scheme: nextUrl.protocol.replace(/:$/, ''),
-          host: nextUrl.hostname,
-          url: nextUrl.toString(),
-        });
-      }
-      throw error;
-    }
-
-    // Per the fetch spec's redirect handling: 303 always downgrades to GET;
-    // 301/302 downgrade POST to GET. The body must not be replayed.
-    if (
-      (response.status === 303 && method !== 'GET' && method !== 'HEAD') ||
-      ((response.status === 301 || response.status === 302) && method === 'POST')
-    ) {
-      method = 'GET';
-      body = null;
-      const contentHeaders: string[] = [];
-      headers.forEach((_value, name) => {
-        if (name.startsWith('content-')) contentHeaders.push(name);
-      });
-      for (const name of contentHeaders) headers.delete(name);
-    }
-
-    // Credentials must not leak to a different origin on redirect.
-    if (url.origin !== validated.origin) {
-      for (const name of SENSITIVE_HEADERS) headers.delete(name);
-    }
-
-    url = validated;
-  }
-
-  throw new SsrfGuardError('blocked_redirect', `Too many redirects: ${maxRedirects}`, {
-    url: url.toString(),
+    ...(undici
+      ? {}
+      : { beforeHop: (hopUrl: URL) => assertResolvedIpsAllowed(hopUrl, urlPolicy) }),
+    // Pinned lookups surface SsrfGuardError wrapped in undici's fetch error.
+    mapFetchError: (error) => findGuardError(error) ?? error,
+    ...(dispatcher ? { extraInit: { dispatcher } } : {}),
   });
 }
 
@@ -221,6 +198,7 @@ export async function assertResolvedIpsAllowed(url: URL, policy: UrlPolicy): Pro
     });
   }
 
+  const lookup = await requireLookup(url);
   const addresses = await lookup(host, { all: true, verbatim: true });
   const blocked = addresses.find((address) => isPrivateOrLocalIp(address.address));
   if (blocked || addresses.length === 0) {
@@ -236,8 +214,4 @@ export async function assertResolvedIpsAllowed(url: URL, policy: UrlPolicy): Pro
       },
     );
   }
-}
-
-function isRedirect(status: number): boolean {
-  return status >= 300 && status < 400 && status !== 304;
 }

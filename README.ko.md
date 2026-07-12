@@ -105,7 +105,8 @@ service를 사용하세요.
 | --- | --- | --- |
 | `validateUrl` / `UrlPolicy` / `HostPolicy` | ✅ | ✅ (순수 URL/문자열 검증) |
 | `guardToolInput` / `guardToolInputJson` / `createGuardedToolHandler` | ✅ | ✅ |
-| `safeFetch` (DNS 검증, redirect 재검증) | ✅ | ❌ 런타임에서 throw |
+| `guardedFetch` + `sameSitePolicy` (URL-time + redirect 재검증) | ✅ | ✅ |
+| `safeFetch` (DNS 검증 추가) | ✅ | ❌ 런타임에서 throw |
 | `undici` DNS pinning | ✅ optional | ❌ |
 
 **Workers에서 `safeFetch`가 동작할 수 없는 이유.** `safeFetch`는 연결 전에
@@ -114,36 +115,35 @@ service를 사용하세요.
 구현하지만 `lookup`은 `Not implemented`를 던집니다 — 설령 resolve가 되더라도
 Workers의 `fetch`는 내부적으로 자체 resolution을 수행하므로, Node의 `undici`
 connector처럼 검증한 IP를 socket에 고정하는 것이 userland에서 불가능합니다.
-check-then-fetch 간극은 Worker 안에서는 닫을 수 없습니다.
+check-then-fetch 간극은 Worker 안에서는 닫을 수 없습니다. (패키지 import는
+항상 안전합니다 — `node:dns`는 lazy load되고, 없는 환경에서 `safeFetch`를
+호출하면 여기를 가리키는 typed `SsrfGuardError`가 던져집니다.)
 
-**Workers에서는 이렇게 하세요.** URL-time 검증 + 모든 redirect hop 재검증을
-직접 수행하고, strict allowlist를 1차 방어선으로 삼으세요:
+**Workers에서는 `guardedFetch`를 쓰세요.** `safeFetch`와 같은 redirect
+재검증·credential 스트리핑·method 다운그레이드 의미론에서 DNS 검증만 뺀
+것입니다 — 따라서 policy allowlist가 1차 방어선이고, fail-closed 기본값
+(빈 allowlist는 아무것도 허용하지 않음)이 실질적인 역할을 합니다:
 
 ```ts
-import { validateUrl, type UrlPolicyOptions } from '@devslab/ssrf-guard-js';
+import { guardedFetch } from '@devslab/ssrf-guard-js';
 
-const MAX_REDIRECTS = 5;
-
-async function guardedWorkersFetch(input: string, policy: UrlPolicyOptions): Promise<Response> {
-  let url = validateUrl(input, policy);
-  for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
-    const res = await fetch(url, { redirect: 'manual' });
-    if (res.status < 300 || res.status >= 400) return res;
-    const location = res.headers.get('location');
-    if (!location) return res;
-    url = validateUrl(new URL(location, url), policy); // 모든 hop이 같은 policy를 다시 통과
-  }
-  throw new Error(`too many redirects for ${input}`);
-}
+const res = await guardedFetch('https://api.example.com/data', {
+  exactHosts: ['api.example.com'],
+  allowedSchemes: ['https'],
+});
 ```
 
-"고객이 제출한 자기 사이트 크롤링" 흐름이라면 allowlist를 하드코딩하지 말고
-제출된 URL에서 유도하세요 — 한 번 검증한 뒤, redirect를 포함한 크롤링 전체를
-그 도메인에 잠급니다:
+특정 host를 열고 싶으면 allowlist에 넣으세요 — 그것이 곧 bypass 메커니즘이고,
+한 곳에서 감사 가능하게 유지됩니다. "고객이 제출한 자기 사이트 크롤링"
+흐름이라면 `sameSitePolicy`로 제출된 URL에서 allowlist를 유도하세요 —
+redirect를 포함한 fetch 전체가 그 도메인에 잠깁니다 (`www.`는 벗겨서
+apex ↔ www redirect가 살아남음):
 
 ```ts
-const first = validateUrl(input, { rejectIpLiteralHosts: true, suffixes: [new URL(input).hostname] });
-const policy = { allowedSchemes: ['https'], suffixes: [first.hostname.replace(/^www\./, '')] };
+import { guardedFetch, sameSitePolicy } from '@devslab/ssrf-guard-js';
+
+const input = 'https://www.customer-site.example/about';
+const res = await guardedFetch(input, sameSitePolicy(input, { allowedSchemes: ['https'] }));
 ```
 
 Workers에서 진짜 임의 URL fetch가 필요하면, `pinDns: true`로 `safeFetch`를
