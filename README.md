@@ -109,6 +109,63 @@ Without `undici`, `safeFetch` falls back to check-then-fetch. That is a strong
 guard rail, but use strict allowlists or a dedicated egress service for
 high-risk arbitrary URL crawling.
 
+## Runtime support: Node vs Cloudflare Workers
+
+Not every guarantee survives every runtime. Know which half of the package
+you are getting:
+
+| Surface | Node | Cloudflare Workers |
+| --- | --- | --- |
+| `validateUrl` / `UrlPolicy` / `HostPolicy` | ✅ | ✅ (pure URL/string checks) |
+| `guardToolInput` / `guardToolInputJson` / `createGuardedToolHandler` | ✅ | ✅ |
+| `safeFetch` (DNS check, redirect revalidation) | ✅ | ❌ throws at runtime |
+| DNS pinning via `undici` | ✅ optional | ❌ |
+
+**Why `safeFetch` cannot work in Workers.** It resolves the target with
+`node:dns/promises` `lookup` before connecting. Workers' `node:dns`
+(under the `nodejs_compat` flag) implements the `resolve*` functions via
+DNS-over-HTTPS but `lookup` throws `Not implemented` — and even if it
+resolved, Workers `fetch` performs its own resolution internally, so
+userland cannot pin the checked IP to the socket the way the `undici`
+connector does in Node. The check-then-fetch gap cannot be closed from
+inside a Worker.
+
+**What to do in Workers instead.** Do URL-time validation and revalidate
+every redirect hop yourself, with a strict allowlist as the primary
+control:
+
+```ts
+import { validateUrl, type UrlPolicyOptions } from '@devslab/ssrf-guard-js';
+
+const MAX_REDIRECTS = 5;
+
+async function guardedWorkersFetch(input: string, policy: UrlPolicyOptions): Promise<Response> {
+  let url = validateUrl(input, policy);
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
+    const res = await fetch(url, { redirect: 'manual' });
+    if (res.status < 300 || res.status >= 400) return res;
+    const location = res.headers.get('location');
+    if (!location) return res;
+    url = validateUrl(new URL(location, url), policy); // every hop re-passes the policy
+  }
+  throw new Error(`too many redirects for ${input}`);
+}
+```
+
+For "crawl the customer's own site" flows, derive the allowlist from the
+submitted URL instead of hardcoding one — validate once, then lock the
+whole crawl (redirects included) to that registrable domain:
+
+```ts
+const first = validateUrl(input, { rejectIpLiteralHosts: true, suffixes: [new URL(input).hostname] });
+const policy = { allowedSchemes: ['https'], suffixes: [first.hostname.replace(/^www\./, '')] };
+```
+
+For genuinely arbitrary URL fetching from Workers, route the request
+through a small Node-based egress service that calls `safeFetch` with
+`pinDns: true` — the Worker talks to the egress service, never to the
+user-supplied URL directly.
+
 ## Express
 
 ```ts
