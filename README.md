@@ -1,6 +1,11 @@
 # ssrf-guard-js
 
-[한국어](README.ko.md) | [Docs](https://devslab-kr.github.io/ssrf-guard-js/)
+[![npm](https://img.shields.io/npm/v/%40devslab%2Fssrf-guard-js)](https://www.npmjs.com/package/@devslab/ssrf-guard-js)
+[![CI](https://github.com/devslab-kr/ssrf-guard-js/actions/workflows/ci.yml/badge.svg)](https://github.com/devslab-kr/ssrf-guard-js/actions/workflows/ci.yml)
+![TypeScript](https://img.shields.io/badge/TypeScript-Ready-3178C6?logo=typescript&logoColor=white)
+[![License](https://img.shields.io/badge/License-Apache--2.0-blue)](./LICENSE)
+
+**[Docs](https://devslab-kr.github.io/ssrf-guard-js/)** · [한국어](README.ko.md)
 
 SSRF protection for JavaScript and TypeScript.
 
@@ -263,10 +268,6 @@ Thrown `SsrfGuardError` instances expose stable `reason` values:
 - `blocked_redirect`
 - `blocked_other`
 
-## License
-
-Apache-2.0
-
 ## Maintainer Release
 
 Publishing is handled by GitHub Actions.
@@ -287,3 +288,12 @@ The `Publish to npm` workflow verifies the package, checks that the tag matches
 ```bash
 npm publish --access public --provenance
 ```
+
+## Family
+
+- [ssrf-guard](https://github.com/devslab-kr/ssrf-guard) — the JVM sibling: the same security model for Spring Boot across 9 HTTP-client modules, including `-springai` / `-langchain4j` for LLM-agent tool URL validation
+- More open source from [devslab](https://github.com/devslab-kr)
+
+## License
+
+[Apache-2.0](./LICENSE)
