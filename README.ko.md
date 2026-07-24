@@ -1,6 +1,11 @@
 # ssrf-guard-js
 
-[English](README.md) | [문서 사이트](https://devslab-kr.github.io/ssrf-guard-js/)
+[![npm](https://img.shields.io/npm/v/%40devslab%2Fssrf-guard-js)](https://www.npmjs.com/package/@devslab/ssrf-guard-js)
+[![CI](https://github.com/devslab-kr/ssrf-guard-js/actions/workflows/ci.yml/badge.svg)](https://github.com/devslab-kr/ssrf-guard-js/actions/workflows/ci.yml)
+![TypeScript](https://img.shields.io/badge/TypeScript-Ready-3178C6?logo=typescript&logoColor=white)
+[![License](https://img.shields.io/badge/License-Apache--2.0-blue)](./LICENSE)
+
+**[문서 사이트](https://devslab-kr.github.io/ssrf-guard-js/)** · [English](README.md)
 
 JavaScript / TypeScript용 SSRF 방어 라이브러리입니다.
 
@@ -232,6 +237,11 @@ export const fetchUrlTool = new DynamicStructuredTool({
 모델이 private IP, metadata URL, 허용되지 않은 host를 넘기면 실제 fetch를 하지 않고
 `ssrf_blocked` JSON 문자열을 tool 결과로 반환합니다.
 
+## Family
+
+- [ssrf-guard](https://github.com/devslab-kr/ssrf-guard) — JVM 자매 라이브러리: 같은 보안 모델을 Spring Boot의 9개 HTTP 클라이언트 모듈에 적용, LLM 에이전트 툴 URL 검증용 `-springai` / `-langchain4j` 포함
+- [devslab](https://github.com/devslab-kr)의 다른 오픈소스
+
 ## License
 
-Apache-2.0
+[Apache-2.0](./LICENSE)
