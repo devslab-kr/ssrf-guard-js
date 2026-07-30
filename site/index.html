@@ -418,6 +418,13 @@ const response = await guardedFetch('https://api.example.com/data', {
   allowedSchemes: ['https'],
 });</code></pre>
 
+        <div class="note">
+          `safeFetch`와 `guardedFetch` 모두 `onFinalUrl` 콜백을 받습니다 — 모든 redirect hop을
+          따라간 뒤의 최종 검증 URL로 호출됩니다. 일부 fetch 구현(커스텀 `fetchImpl` 포함)은
+          `Response.url`을 비워 두므로, 가져온 콘텐츠의 실제 출처 라벨링에는 이 콜백이 더
+          신뢰할 수 있습니다.
+        </div>
+
         <h3>`sameSitePolicy(url, overrides?)`</h3>
         <p>
           "사용자가 제출한 자기 사이트 크롤링" 흐름을 위한 policy 헬퍼입니다. 제출된 URL의
@@ -522,6 +529,13 @@ if (violation) {
   console.log(violation);
   // 이 문자열을 tool 결과로 LLM에게 돌려주면 됩니다.
 }</code></pre>
+
+        <div class="note">
+          기본 동작은 문자열의 전체 값이 URL인 경우만 잡습니다. 긴 문장 한가운데 묻힌 URL —
+          `"summarize http://169.254.169.254/ please"` — 까지 잡으려면
+          `{ scanEmbedded: true }` 옵션을 켜세요. 기본 스캐너가 잡던 것은 전부 그대로 잡고
+          (strictly additive), 산문·코드 스니펫 안의 URL 모양 텍스트도 policy로 검증합니다.
+        </div>
       </section>
 
       <section>

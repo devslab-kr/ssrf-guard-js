@@ -57,8 +57,24 @@ if (violation) {
 }
 ```
 
-JSON 전체를 재귀적으로 검사합니다. URL이 nested object, array, 설명 문장 안에 숨어 있어도
-차단됩니다.
+JSON 전체를 재귀적으로 검사합니다. URL이 nested object나 array 어디에 숨어 있어도
+차단됩니다. `scheme://` URL 전부(정책의 `allowedSchemes`가 결과를 결정하므로
+`file://`, `gopher://`는 기본 차단)와 protocol-relative `//host` 문자열을
+수집해 host policy로 검증합니다.
+
+기본 동작은 문자열의 (trim된) 전체 값이 URL인 경우만 잡습니다. 긴 문장 한가운데
+묻힌 URL — `"summarize http://169.254.169.254/ please"` — 까지 잡으려면
+embedded 스캔을 opt-in 하세요:
+
+```ts
+guardToolInputJson(toolInput, policy, { scanEmbedded: true });
+```
+
+`scanEmbedded`는 엄격히 additive입니다(기본 스캐너가 잡던 것은 전부 그대로
+잡습니다). 그리고 의도적으로 공격적입니다: 산문이나 코드 스니펫 안의 URL 모양
+텍스트도 policy로 검증하므로, allowlist 밖의 host는 그 자리에서 위반으로
+처리됩니다. URL 꼬리에 붙은 문장 부호(`…see https://spec.example/docs,`)는
+검증 전에 잘라냅니다.
 
 ## Guarded Fetch
 
@@ -76,6 +92,20 @@ const response = await safeFetch('https://api.example.com/data', {
 검증합니다. Cross-origin redirect에서는 `Authorization` / `Proxy-Authorization` /
 `Cookie` 헤더를 제거하고, `303`(그리고 `POST`의 `301`/`302`)은 body 재전송 없이
 `GET`으로 다운그레이드합니다.
+
+`safeFetch`와 `guardedFetch` 모두 `onFinalUrl` 콜백을 받습니다 — 모든 redirect
+hop을 따라간 뒤의 최종 검증 URL로 호출됩니다. 가져온 콘텐츠의 실제 출처를
+라벨링할 때 쓰세요. 일부 fetch 구현(커스텀 `fetchImpl` 포함)은 `Response.url`을
+비워 두므로 그보다 신뢰할 수 있습니다. fetch가 throw하면 호출되지 않습니다.
+
+```ts
+let finalUrl: URL | undefined;
+const response = await safeFetch(input, policy, {
+  onFinalUrl: (url) => {
+    finalUrl = url;
+  },
+});
+```
 
 ### DNS pinning (optional)
 

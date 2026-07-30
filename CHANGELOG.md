@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-07-30
+
+Both additions come from the first production consumer's integration
+feedback; defaults and existing signatures are unchanged.
+
+### Added
+
+- `scanEmbedded` option for the LLM tool-input guards (`guardToolInput`,
+  `guardToolInputJson`, `createGuardedToolHandler`). Opt-in scanning for
+  URLs embedded **anywhere** inside argument strings: `scheme://` URLs
+  and protocol-relative `//host` references buried mid-sentence
+  (`"summarize http://169.254.169.254/ please"`) are extracted and
+  validated against the policy. Strictly additive — everything the base
+  whole-string scanner flags stays flagged — and deliberately
+  aggressive: URL-shaped text inside prose or code snippets is
+  validated too, so non-allowlisted hosts there count as violations.
+  Prose punctuation stuck to the URL tail (`…/docs,` / `(…)`) is
+  trimmed before validation; balanced parentheses in paths survive.
+  Off by default, so existing behavior is unchanged.
+- `onFinalUrl` option for `guardedFetch` and `safeFetch`: called with
+  the final validated URL after all redirect hops have been followed.
+  More reliable than `Response.url`, which some fetch implementations
+  (including custom `fetchImpl`s and test fakes) leave empty — use it
+  to attribute the fetched content to its true origin. Not called when
+  the fetch throws.
+- `GuardToolInputOptions` and the previously unexported
+  `SafeFetchOptions` are now part of the public type surface.
+
 ## [0.4.0] - 2026-07-13
 
 ### Added
