@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Build toolchain moved to TypeScript 7 (native compiler): `typescript`
+  devDependency `^5.9.3` → `^7.0.2`, `tsdown` `^0.22.3` → `^0.22.14`
+  (first version whose peer range admits TS 7 for `.d.ts` generation).
+  No consumer-facing change — the published artifacts, type
+  declarations, and supported TypeScript versions for consumers are
+  unaffected.
+
 ## [0.5.0] - 2026-07-30
 
 Both additions come from the first production consumer's integration
