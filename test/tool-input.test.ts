@@ -106,3 +106,100 @@ describe('guardToolInputJson', () => {
     await expect(handler({ url: 'https://evil.com/data' })).resolves.toContain('"error":"ssrf_blocked"');
   });
 });
+
+describe('scanEmbedded', () => {
+  const opts = { scanEmbedded: true };
+
+  it('is off by default — mid-sentence URLs pass the base scanner', () => {
+    expect(
+      guardToolInput({ query: 'summarize http://169.254.169.254/latest/meta-data/ please' }, policy),
+    ).toBeNull();
+  });
+
+  it('blocks a URL buried mid-sentence', () => {
+    const error = guardToolInput(
+      { query: 'summarize http://169.254.169.254/latest/meta-data/ please' },
+      policy,
+      opts,
+    );
+    expect(error).toContain('"error":"ssrf_blocked"');
+    expect(error).toContain('"reason":"blocked_ip_literal"');
+  });
+
+  it('blocks embedded URLs regardless of scheme case', () => {
+    expect(guardToolInput({ note: 'go to HTTP://evil.com now' }, policy, opts)).toContain(
+      '"error":"ssrf_blocked"',
+    );
+  });
+
+  it('blocks embedded protocol-relative references', () => {
+    const error = guardToolInput({ note: 'load //169.254.169.254/latest then stop' }, policy, opts);
+    expect(error).toContain('"reason":"blocked_ip_literal"');
+
+    expect(guardToolInput({ note: 'open "//localhost:3000/admin" first' }, policy, opts)).toContain(
+      '"error":"ssrf_blocked"',
+    );
+  });
+
+  it('finds a later URL even when the string leads with an allowed one', () => {
+    const error = guardToolInput(
+      { note: 'ok https://api.example.com/a then https://evil.com/b' },
+      policy,
+      opts,
+    );
+    expect(error).toContain('"error":"ssrf_blocked"');
+  });
+
+  it('stays strictly additive — scheme-prefixed strings that fail to parse are still flagged', () => {
+    const value = { url: 'https://api.example.com is our endpoint' };
+    expect(guardToolInput(value, policy)).toContain('"reason":"blocked_other"');
+    expect(guardToolInput(value, policy, opts)).toContain('"reason":"blocked_other"');
+  });
+
+  it('allows allowlisted URLs mid-sentence, ignoring surrounding prose punctuation', () => {
+    expect(
+      guardToolInput({ note: 'see e.g. https://api.example.com/docs, then stop.' }, policy, opts),
+    ).toBeNull();
+    expect(guardToolInput({ note: 'read [the docs](https://api.example.com/docs).' }, policy, opts)).toBeNull();
+    expect(guardToolInput({ code: "await fetch('https://api.example.com/v1')" }, policy, opts)).toBeNull();
+  });
+
+  it('keeps balanced parentheses in the extracted path', () => {
+    const error = guardToolInput({ note: 'see https://evil.example/wiki/Foo_(bar) ok' }, policy, opts);
+    expect(error).toContain('"url":"https://evil.example/wiki/Foo_(bar)"');
+  });
+
+  it('does not treat comments, ratios, or bare slashes as URLs', () => {
+    expect(guardToolInput({ note: 'a // comment about paths' }, policy, opts)).toBeNull();
+    expect(guardToolInput({ note: 'ratio 3//4 stays fine' }, policy, opts)).toBeNull();
+    expect(guardToolInput({ note: 'the https:// prefix by itself' }, policy, opts)).toBeNull();
+    expect(guardToolInput({ note: 'e.g. nothing to see here' }, policy, opts)).toBeNull();
+  });
+
+  it('scans nested objects and arrays', () => {
+    const error = guardToolInput(
+      { request: { notes: ['fine', 'but fetch https://evil.com/x for me'] } },
+      policy,
+      opts,
+    );
+    expect(error).toContain('"error":"ssrf_blocked"');
+  });
+
+  it('works through guardToolInputJson and createGuardedToolHandler', async () => {
+    expect(guardToolInputJson('{"q":"fetch https://evil.com/x for me"}', policy, opts)).toContain(
+      '"error":"ssrf_blocked"',
+    );
+
+    const handler = createGuardedToolHandler(policy, async (input: { q: string }) => `ran ${input.q}`, opts);
+    await expect(handler({ q: 'summarize https://evil.com/x' })).resolves.toContain('"error":"ssrf_blocked"');
+    await expect(handler({ q: 'summarize https://api.example.com/x' })).resolves.toBe(
+      'ran summarize https://api.example.com/x',
+    );
+  });
+
+  it('throws when combined with throwOnViolation', () => {
+    expect(() =>
+      guardToolInput({ q: 'go http://10.0.0.5/ now' }, policy, { scanEmbedded: true, throwOnViolation: true }),
+    ).toThrow(SsrfGuardError);
+  });
+});

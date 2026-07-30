@@ -215,6 +215,19 @@ describe('safeFetch', () => {
     expect(second.body).toBeNull();
   });
 
+  it('reports the final URL after redirects via onFinalUrl', async () => {
+    fetchMock
+      .mockResolvedValueOnce(redirectResponse(302, 'https://cdn.example.com/file'))
+      .mockResolvedValueOnce(okResponse());
+
+    const finalUrls: string[] = [];
+    await safeFetch('https://api.example.com/data', policy, {
+      onFinalUrl: (url) => finalUrls.push(url.toString()),
+    });
+
+    expect(finalUrls).toEqual(['https://cdn.example.com/file']);
+  });
+
   it('throws a clear error when pinDns is required but undici is missing', async () => {
     await expect(
       safeFetch('https://api.example.com/data', policy, { pinDns: true }),

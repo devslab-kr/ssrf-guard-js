@@ -25,6 +25,13 @@ export interface GuardedFetchOptions extends RequestInit {
   maxRedirects?: number;
   /** Override the fetch implementation (tests, instrumented clients). */
   fetchImpl?: FetchImpl;
+  /**
+   * Called with the final validated URL — the last hop's URL after all
+   * redirects were followed. More reliable than `Response.url`, which
+   * a custom `fetchImpl` (test fakes, instrumented clients) may leave
+   * empty. Not called when the fetch throws.
+   */
+  onFinalUrl?: (url: URL) => void;
 }
 
 export async function guardedFetch(
@@ -34,7 +41,7 @@ export async function guardedFetch(
 ): Promise<Response> {
   const urlPolicy = policy instanceof UrlPolicy ? policy : new UrlPolicy(policy);
   const url = validateUrl(input, urlPolicy);
-  const { maxRedirects = 5, fetchImpl, ...requestInit } = init;
+  const { maxRedirects = 5, fetchImpl, onFinalUrl, ...requestInit } = init;
 
   return followRedirectsGuarded({
     url,
@@ -42,6 +49,7 @@ export async function guardedFetch(
     init: requestInit,
     maxRedirects,
     fetchImpl: fetchImpl ?? ((u, i) => fetch(u, i)),
+    ...(onFinalUrl ? { onFinalUrl } : {}),
   });
 }
 

@@ -73,6 +73,21 @@ array, or explanation field is still blocked. The scanner collects any
 `file://` or `gopher://` are rejected by default) and protocol-relative
 `//host` strings, which are validated against the host policy.
 
+By default only strings whose whole (trimmed) value is a URL are flagged,
+wherever they sit in the tree. To also catch URLs buried mid-sentence inside
+longer strings — `"summarize http://169.254.169.254/ please"` — opt into
+embedded scanning:
+
+```ts
+guardToolInputJson(toolInput, policy, { scanEmbedded: true });
+```
+
+`scanEmbedded` is strictly additive (everything the base scanner flags stays
+flagged) and deliberately aggressive: URL-shaped text inside prose or code
+snippets is validated against the policy, so non-allowlisted hosts there
+count as violations. Prose punctuation stuck to the URL tail
+(`…see https://spec.example/docs,`) is trimmed before validation.
+
 ## Guarded Fetch
 
 ```ts
@@ -89,6 +104,21 @@ const response = await safeFetch('https://api.example.com/data', {
 redirect hop. On cross-origin redirects it strips `Authorization`,
 `Proxy-Authorization`, and `Cookie` headers, and it downgrades `303` (and
 `301`/`302` `POST`) redirects to `GET` without replaying the request body.
+
+Both `safeFetch` and `guardedFetch` accept an `onFinalUrl` callback that
+receives the final validated URL once all redirect hops have been followed.
+Use it to attribute the fetched content to its true origin — it is more
+reliable than `Response.url`, which some fetch implementations (including
+custom `fetchImpl`s) leave empty. It is not called when the fetch throws.
+
+```ts
+let finalUrl: URL | undefined;
+const response = await safeFetch(input, policy, {
+  onFinalUrl: (url) => {
+    finalUrl = url;
+  },
+});
+```
 
 ### DNS pinning (optional)
 
@@ -278,7 +308,7 @@ Publishing is handled by GitHub Actions.
 4. Create and push a matching tag, for example:
 
 ```bash
-git tag v0.4.0
+git tag v0.5.0
 git push origin main --tags
 ```
 

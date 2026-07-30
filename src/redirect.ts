@@ -32,10 +32,12 @@ export interface RedirectLoopArgs {
   mapFetchError?: (error: unknown) => unknown;
   /** Extra init merged into every hop's request (undici dispatcher). */
   extraInit?: Record<string, unknown>;
+  /** Called with the final validated URL when a response is returned. */
+  onFinalUrl?: (url: URL) => void;
 }
 
 export async function followRedirectsGuarded(args: RedirectLoopArgs): Promise<Response> {
-  const { policy, maxRedirects, fetchImpl, beforeHop, mapFetchError, extraInit } = args;
+  const { policy, maxRedirects, fetchImpl, beforeHop, mapFetchError, extraInit, onFinalUrl } = args;
   const requestInit = args.init;
   const headers = new Headers(requestInit.headers);
   let url = args.url;
@@ -59,10 +61,16 @@ export async function followRedirectsGuarded(args: RedirectLoopArgs): Promise<Re
       throw mapFetchError ? mapFetchError(error) : error;
     }
 
-    if (!isRedirect(response.status)) return response;
+    if (!isRedirect(response.status)) {
+      onFinalUrl?.(url);
+      return response;
+    }
 
     const location = response.headers.get('location');
-    if (!location) return response;
+    if (!location) {
+      onFinalUrl?.(url);
+      return response;
+    }
 
     await response.body?.cancel();
 

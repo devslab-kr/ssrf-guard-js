@@ -114,6 +114,46 @@ describe('guardedFetch', () => {
     ).rejects.toMatchObject({ reason: 'blocked_redirect' });
   });
 
+  it('reports the final URL after redirects via onFinalUrl', async () => {
+    const fetchImpl = scriptedFetch([
+      redirectResponse(302, 'https://cdn.example.com/asset'),
+      okResponse(),
+    ]);
+    let finalUrl: URL | undefined;
+    await guardedFetch('https://api.example.com/asset', policy, {
+      fetchImpl,
+      onFinalUrl: (url) => {
+        finalUrl = url;
+      },
+    });
+    expect(finalUrl?.toString()).toBe('https://cdn.example.com/asset');
+  });
+
+  it('reports the request URL via onFinalUrl when nothing redirects', async () => {
+    const fetchImpl = scriptedFetch([okResponse()]);
+    const onFinalUrl = vi.fn();
+    await guardedFetch('https://api.example.com/data', policy, { fetchImpl, onFinalUrl });
+    expect(onFinalUrl).toHaveBeenCalledOnce();
+    expect(String(onFinalUrl.mock.calls[0]![0])).toBe('https://api.example.com/data');
+  });
+
+  it('reports the current URL for a redirect status without a location header', async () => {
+    const fetchImpl = scriptedFetch([redirectResponse(302)]);
+    const onFinalUrl = vi.fn();
+    await guardedFetch('https://api.example.com/dangling', policy, { fetchImpl, onFinalUrl });
+    expect(onFinalUrl).toHaveBeenCalledOnce();
+    expect(String(onFinalUrl.mock.calls[0]![0])).toBe('https://api.example.com/dangling');
+  });
+
+  it('does not call onFinalUrl when the fetch is blocked', async () => {
+    const fetchImpl = scriptedFetch([redirectResponse(302, 'https://evil.example/steal')]);
+    const onFinalUrl = vi.fn();
+    await expect(
+      guardedFetch('https://api.example.com/', policy, { fetchImpl, onFinalUrl }),
+    ).rejects.toMatchObject({ reason: 'blocked_redirect' });
+    expect(onFinalUrl).not.toHaveBeenCalled();
+  });
+
   it('accepts a prebuilt UrlPolicy', async () => {
     const fetchImpl = scriptedFetch([okResponse()]);
     const res = await guardedFetch('https://api.example.com/', new UrlPolicy(policy), {

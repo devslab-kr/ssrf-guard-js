@@ -16,6 +16,13 @@ export interface SafeFetchOptions extends RequestInit {
    * - unset: pin automatically when `undici` is installed.
    */
   pinDns?: boolean;
+  /**
+   * Called with the final validated URL — the last hop's URL after all
+   * redirects were followed. More reliable than `Response.url`, which
+   * some fetch implementations leave empty. Not called when the fetch
+   * throws.
+   */
+  onFinalUrl?: (url: URL) => void;
 }
 
 interface DnsAddress {
@@ -156,7 +163,7 @@ export async function safeFetch(
 ): Promise<Response> {
   const urlPolicy = policy instanceof UrlPolicy ? policy : new UrlPolicy(policy);
   const url = validateUrl(input, urlPolicy);
-  const { maxRedirects = 5, pinDns, ...requestInit } = init;
+  const { maxRedirects = 5, pinDns, onFinalUrl, ...requestInit } = init;
 
   const undici = pinDns === false ? null : await loadUndici();
   if (pinDns === true && !undici) {
@@ -175,6 +182,7 @@ export async function safeFetch(
     init: requestInit,
     maxRedirects,
     fetchImpl,
+    ...(onFinalUrl ? { onFinalUrl } : {}),
     // Unpinned mode checks DNS before connecting; pinned mode validates inside
     // the connector's lookup, so check and connection share one resolution.
     ...(undici
