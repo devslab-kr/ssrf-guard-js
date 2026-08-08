@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.5.1] - 2026-08-08
 
 Maintenance release. Nothing in the published package behaves
-differently — both changes are to how it is built and released.
+differently — every change here is to how it is built and released.
 
 ### Changed
 
@@ -22,6 +22,12 @@ differently — both changes are to how it is built and released.
   unaffected.
 - Release workflow uses `softprops/action-gh-release` v3 (v2 runs on the
   deprecated Node 20 runtime). CI only.
+- Releases now publish from a merge to `main` that changes `version` in
+  `package.json`: the workflow tags, publishes, and creates the GitHub
+  Release itself. Pushing a `vX.Y.Z` tag by hand still works and is
+  unchanged. The gate is the npm registry rather than the tag, so
+  ordinary merges are a no-op and a re-run can never double-publish.
+  CI only.
 
 ### Documentation
 
