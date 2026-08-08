@@ -157,10 +157,13 @@ DNS-rebinding 창이 남습니다. optional [`undici`](https://www.npmjs.com/pac
 pnpm add undici
 ```
 
-`undici`가 있으면 `safeFetch`는 resolve된 주소를 **socket connector 안에서**
+`undici`가 있으면 `safeFetch`는 resolve된 주소를 **socket connector 안에서도**
 검증합니다 — 검증과 연결이 하나의 DNS resolution을 공유하는, Java Apache
-HttpClient adapter와 같은 socket-level pinning입니다. `pinDns` 옵션으로 명시적
-제어가 가능합니다:
+HttpClient adapter와 같은 socket-level pinning입니다. 연결 전 DNS 검사는 모든
+모드에서 그대로 실행됩니다. pinning은 리바인딩 창을 좁힐 뿐, 결코 유일한 검사가
+아닙니다
+([JS-016](docs/decisions.ko.md#js-016--가드는-호스트가-훅을-존중해-주는-데-기대면-안-된다)).
+`pinDns` 옵션으로 명시적 제어가 가능합니다:
 
 ```ts
 await safeFetch(url, policy, { pinDns: true }); // pinning 필수 (undici 없으면 throw)
@@ -171,18 +174,38 @@ await safeFetch(url, policy, { pinDns: false }); // check-then-fetch 강제
 위험도가 높은 임의 URL 크롤링은 strict allowlist나 별도 guarded egress
 service를 사용하세요.
 
-## Runtime 지원: Node vs Cloudflare Workers
+## Runtime 지원: Node · Bun · Deno · Cloudflare Workers
 
 모든 보장이 모든 runtime에서 살아남는 건 아닙니다. 어느 절반을 쓰게 되는지
 알고 시작하세요:
 
-| Surface | Node | Cloudflare Workers |
-| --- | --- | --- |
-| `validateUrl` / `UrlPolicy` / `HostPolicy` | ✅ | ✅ (순수 URL/문자열 검증) |
-| `guardToolInput` / `guardToolInputJson` / `createGuardedToolHandler` | ✅ | ✅ |
-| `guardedFetch` + `sameSitePolicy` (URL-time + redirect 재검증) | ✅ | ✅ |
-| `safeFetch` (DNS 검증 추가) | ✅ | ❌ 런타임에서 throw |
-| `undici` DNS pinning | ✅ optional | ❌ |
+| Surface | Node | Bun | Deno | Cloudflare Workers |
+| --- | --- | --- | --- | --- |
+| `validateUrl` / `UrlPolicy` / `HostPolicy` | ✅ | ✅ | ✅ | ✅ (순수 URL/문자열 검증) |
+| `guardToolInput` / `guardToolInputJson` / `createGuardedToolHandler` | ✅ | ✅ | ✅ | ✅ |
+| `guardedFetch` + `sameSitePolicy` (URL-time + redirect 재검증) | ✅ | ✅ | ✅ | ✅ |
+| `safeFetch` (DNS 검증 추가) | ✅ | ✅ | ✅ | ❌ 런타임에서 throw |
+| `undici` DNS pinning | ✅ optional | ⚠️ 효과 없음 | ✅ optional | ❌ |
+
+Node 24 · Bun 1.3.3 · Deno 2.9.5에서 배포된 패키지를 실제로 설치하고 공개
+표면을 실행해 확인했습니다.
+
+**⚠️ Bun에서는 pinning이 동작하지 않습니다.** Bun은 undici의
+`Agent({ connect: { lookup } })`를 받아들이고 그 훅을 호출하지 않습니다. 따라서
+Bun에서 pinning은 무효입니다 — DNS 검사는 전부 그대로지만, pinning의 목적인
+리바인딩 창 차단은 얻지 못합니다. 조용히 약해지는 건 없습니다: 0.6.1부터
+사설 IP 검사가 모든 모드·모든 런타임에서 연결 **전에** 실행됩니다
+([JS-016](docs/decisions.ko.md#js-016--가드는-호스트가-훅을-존중해-주는-데-기대면-안-된다)).
+
+> **`< 0.6.1`을 Bun에서 쓰는 경우 보안 공지:** 그 버전들에서는 핀 모드가
+> **유일한** DNS 검사였습니다. 그래서 Bun에서 `safeFetch`는 DNS 검사를 전혀
+> 하지 않았고, 사설 주소로 resolve되는 호스트를 그대로 가져왔습니다.
+> `pinDns` 미지정 시 `undici`만 설치돼 있으면 자동으로 핀이 켜지므로 이것이
+> **기본 동작**이었습니다. 0.6.1로 올리세요 — 코드 변경은 필요 없습니다.
+
+**Deno 참고.** Deno 2.x는 갓 배포된 npm 버전에 최소 의존성 나이(기본 24시간)를
+적용해서, `deno add`가 하루 동안 직전 릴리스를 집습니다. 패키징 문제가 아니라
+Deno의 공급망 정책입니다 — 기다리거나 `--min-dep-age 0`을 주세요.
 
 **Workers에서 `safeFetch`가 동작할 수 없는 이유.** `safeFetch`는 연결 전에
 `node:dns/promises`의 `lookup`으로 대상을 resolve합니다. Workers의

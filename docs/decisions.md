@@ -458,3 +458,66 @@ false against every size and disable the cap without saying so.
 **Revisit when.** Callers need a truncating mode often enough that
 catching the error is real friction — then it is a separate, explicitly
 named option, not a change to this one.
+
+## JS-016 — A guard may not depend on the host honouring a hook
+
+**Shipped:** 0.6.1 (2026-08-08)
+
+**Context.** `safeFetch`'s pinned mode enforced the private-IP rule inside
+the callback passed to `undici`'s `Agent({ connect: { lookup } })`, and
+deliberately skipped the pre-connect check because the connector was
+expected to cover it — one resolution shared by the check and the socket,
+which is the whole point of pinning ([JS-005](#js-005--dns-pinning-via-an-optional-undici-peer-dependency)).
+
+Bun 1.3.3 accepts that option and never calls the callback. Neither check
+ran. With a live listener on loopback, `safeFetch` on Bun returned
+HTTP 200 for a host resolving to `127.0.0.1` — the exact request the
+library exists to refuse. Node and Deno honour the hook and were never
+affected.
+
+Two things made it worse than a runtime quirk. It was the **default**:
+`pinDns` unset pins whenever `undici` is installed, so nobody had to opt
+in to lose the guard. And it **inverted the hardening option** — passing
+`pinDns: true`, the thing a careful caller reaches for, was the most
+reliable way to turn the private-IP check off.
+
+It was also invisible to the test suite. Every pinned test passed on Node
+precisely *because* Node calls the hook. A suite that only runs where the
+hook works cannot observe a bug that only exists where it does not.
+
+**Decision.** The pre-connect DNS validation runs in **every** mode,
+pinned or not. Pinning is now strictly additive: where the runtime honours
+the hook it still collapses check and connection onto one resolution and
+closes the rebinding window; where it does not, the private-IP guard holds
+anyway.
+
+The general rule, which is why this has a decision entry rather than a
+changelog line: **a security control may not be the only copy of itself
+when it lives in someone else's callback.** Optional hooks are requests to
+a host, not guarantees from it. A host that ignores one is not a bug we
+can detect from the inside — the callback simply never fires, which is
+indistinguishable from a request that had no need of it.
+
+**Cost.** One extra DNS resolution per hop on runtimes that do honour
+pinning, since the address is now looked up twice. That is the price of
+the guarantee not being contingent, and it is what unpinned mode already
+paid. Resolver caching absorbs most of it.
+
+**Alternatives.** Probe at startup whether the hook fires and fail closed
+if not (a network round trip on first use, and a probe that has to model
+every runtime's behaviour); refuse to pin on runtimes known to ignore it
+(a denylist that is wrong the moment Bun fixes it, or the next runtime
+appears); leave it and document Bun as unsupported (the failure is silent
+and the default is on — documentation does not reach the person who never
+read it).
+
+**Testing.** The regression test mocks `undici` with an `Agent` that
+accepts `connect.lookup` and ignores it, reproducing the hostile runtime
+inside the Node suite. It asserts the block still happens with
+`pinDns: true`, with automatic pinning, and on a redirect hop — and
+asserts that the stub was actually handed a hook, so the test cannot pass
+for the wrong reason.
+
+**Revisit when.** Bun starts honouring `connect.lookup`. Even then the
+pre-connect check stays: the point is that the guarantee does not depend
+on which runtime is underneath.
