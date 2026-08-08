@@ -12,8 +12,8 @@ Sibling library: [`devslab-kr/ssrf-guard`](https://github.com/devslab-kr/ssrf-gu
 
 ## Current state
 
-- **Published:** `@devslab/ssrf-guard-js` **0.7.0** (npm, 2026-08-08)
-- **Suite:** 219 tests across 15 files, green as of 2026-08-08
+- **Published:** `@devslab/ssrf-guard-js` **0.7.1** (npm, 2026-08-09)
+- **Suite:** 223 tests across 15 files, green as of 2026-08-09
 - **Runtimes:** Node 22+, Bun, Deno verified by installing the published
   package and running the surface on each; Workers for the non-DNS half
 - **Entry points:** root (`.`), `./vite`, and `./hono`
@@ -39,6 +39,7 @@ Sibling library: [`devslab-kr/ssrf-guard`](https://github.com/devslab-kr/ssrf-gu
 | 0.6.1 | 2026-08-08 | ✅ **Security:** `safeFetch` ran no DNS checks on Bun when pinning was active (the default with `undici` installed) — the pre-connect check now runs in every mode ([JS-016](decisions.md#js-016--a-guard-may-not-depend-on-the-host-honouring-a-hook)) |
 | 0.7.0 | 2026-08-08 | ✅ `singleHostPolicy` (origin lock, port included) and `createHonoUrlGuard` at `./hono` ([JS-018](decisions.md#js-018--singlehostpolicy-locks-the-origin-port-included), [JS-019](decisions.md#js-019--the-hono-adapter-is-typed-structurally-and-tested-against-real-hono)) |
 | — | 2026-08-09 | ✅ Docs site: English at `/`, Korean at `/ko/` ([JS-017](decisions.md#js-017--the-landing-page-follows-the-repos-paired-file-convention)) — no release, the site deploys from `main` |
+| 0.7.1 | 2026-08-09 | ✅ **Security:** `::` and `fec0::/10` were classified as public — found by the first [JVM ↔ JS parity audit](parity.md), which also opened [ssrf-guard#20](https://github.com/devslab-kr/ssrf-guard/pull/20) on the Java side |
 
 Two releases came straight from consumer integration feedback: 0.4.0
 (AskLinq had hand-rolled the redirect loop) and 0.5.0 (both options were
@@ -100,14 +101,6 @@ view:
   bypass shape again — two implementations of one filter, drifting (see
   the parity-audit item below). If the eager import ever has to go, it
   needs a real differential test, not a find-replace.
-
-### P3 — recurring JVM ↔ JS parity audit
-
-The 0.1.2 uppercase-scheme bypass existed in **both** libraries, because
-both had independently written the same URL-collection filter. There is no
-scheduled check that the two models still agree. A written checklist —
-scanner collection rules, IP classification, redirect semantics, block
-reasons — walked whenever either side changes core logic.
 
 ### P3 — a JS demo in `devslab-examples`
 

@@ -78,12 +78,21 @@ export function isPrivateOrLocalIp(input: string): boolean {
     return isPrivateIpv4(bytes.slice(2, 6));
   }
 
-  if (bytes.every((byte, index) => (index === bytes.length - 1 ? byte === 0x01 : byte === 0x00))) {
+  // `::1` loopback and `::` unspecified. Connecting to the unspecified
+  // address reaches the local host, so it belongs here for the same
+  // reason `0.0.0.0` does — the JVM sibling catches it through
+  // `isAnyLocalAddress()`, and this side used to let it through.
+  if (bytes.every((byte, index) => (index === bytes.length - 1 ? byte <= 0x01 : byte === 0x00))) {
     return true;
   }
 
   if ((bytes[0]! & 0xfe) === 0xfc) return true;
   if (bytes[0] === 0xfe && (bytes[1]! & 0xc0) === 0x80) return true;
+  // `fec0::/10` site-local. Deprecated by RFC 3879 and therefore easy to
+  // leave out, but still routed on networks that predate the deprecation
+  // — which is exactly where an internal address lives. The JVM sibling
+  // catches it through `isSiteLocalAddress()`.
+  if (bytes[0] === 0xfe && (bytes[1]! & 0xc0) === 0xc0) return true;
   if (bytes[0] === 0xff) return true;
 
   return false;
