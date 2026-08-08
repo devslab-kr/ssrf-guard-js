@@ -20,7 +20,8 @@
 - **선택 peer:** `undici >=6` (`safeFetch`의 DNS 피닝 활성화)
 - **프로덕션 소비자:** AskLinq (`devslab-kr/asklinq`) — URL 인제스트,
   브랜드 컬러 탐지, LLM 툴 입력 가드, API 브리지 실행기
-- **문서 사이트:** <https://devslab-kr.github.io/ssrf-guard-js/> (한국어만)
+- **문서 사이트:** <https://devslab-kr.github.io/ssrf-guard-js/> — 영어,
+  한국어는 `/ko/`
 
 ## 출시 완료
 
@@ -37,6 +38,7 @@
 | 0.6.0 | 2026-08-08 | ✅ `checkUrl` / `isUrlAllowed`(예외 없는 정책 판정), `maxBytes` 응답 상한과 신규 `blocked_response_size` 사유 |
 | 0.6.1 | 2026-08-08 | ✅ **보안:** 피닝이 켜진 Bun에서 `safeFetch`가 DNS 검사를 전혀 하지 않던 문제(`undici` 설치 시 기본 동작) — 연결 전 검사를 모든 모드에서 실행([JS-016](decisions.ko.md#js-016--가드는-호스트가-훅을-존중해-주는-데-기대면-안-된다)) |
 | 0.7.0 | 2026-08-08 | ✅ `singleHostPolicy`(origin 잠금, 포트 포함)과 `./hono`의 `createHonoUrlGuard` ([JS-018](decisions.ko.md#js-018--singlehostpolicy는-포트까지-포함해-origin을-잠근다), [JS-019](decisions.ko.md#js-019--hono-어댑터는-구조적-타이핑으로-쓰고-실제-hono로-검증한다)) |
+| — | 2026-08-09 | ✅ 문서 사이트: 영어 `/`, 한국어 `/ko/` ([JS-017](decisions.ko.md#js-017--랜딩-페이지도-repo의-짝-파일-규약을-따른다)) — 릴리스 아님, 사이트는 `main`에서 배포 |
 
 두 릴리스는 소비자 통합 피드백에서 직접 나왔다 — 0.4.0(AskLinq가 리다이렉트
 루프를 손으로 짜고 있었다)과 0.5.0(두 옵션 모두 같은 통합에서 요청).
@@ -59,14 +61,6 @@ API를 갖고 소비자는 우회를 짊어진다.
 
 확정이 아니라 제안이며, 우선순위는 소유자 확인을 기다리는 권고다. 각 항목은
 실제 소비자에서 관측된 사실이거나 JVM 자매와의 격차에 근거한다.
-
-### P2 — 문서 사이트 이중 언어
-
-`README.md`에는 `README.ko.md`가 있고 JVM 자매의 mkdocs 사이트는 완전한 이중
-언어인데, `site/index.html`은 한국어뿐이다. 랜딩 페이지의 영어 짝 — 이 격차는
-repo의 나머지와 방향이 반대다. 다른 곳은 영어가 원본이고 `.ko.md`가 번역인데
-여기만 거꾸로다. 랜딩 페이지는 npm 방문자가 가장 먼저 보는 화면이고, 한국어를
-읽지 못하는 사람이 물러설 곳이 없는 유일한 표면이다.
 
 ### P2 — 지원 런타임별 CI 잡
 
