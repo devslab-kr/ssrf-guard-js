@@ -12,11 +12,11 @@ Sibling library: [`devslab-kr/ssrf-guard`](https://github.com/devslab-kr/ssrf-gu
 
 ## Current state
 
-- **Published:** `@devslab/ssrf-guard-js` **0.6.1** (npm, 2026-08-08)
-- **Suite:** 191 tests across 12 files, green as of 2026-08-08
+- **Published:** `@devslab/ssrf-guard-js` **0.7.0** (npm, 2026-08-08)
+- **Suite:** 219 tests across 15 files, green as of 2026-08-08
 - **Runtimes:** Node 22+, Bun, Deno verified by installing the published
   package and running the surface on each; Workers for the non-DNS half
-- **Entry points:** root (`.`) and `./vite`
+- **Entry points:** root (`.`), `./vite`, and `./hono`
 - **Optional peer:** `undici >=6` (enables DNS pinning for `safeFetch`)
 - **Production consumers:** AskLinq (`devslab-kr/asklinq`) — URL ingestion,
   brand-color probe, LLM tool-input guard, and the API bridge executor
@@ -36,6 +36,7 @@ Sibling library: [`devslab-kr/ssrf-guard`](https://github.com/devslab-kr/ssrf-gu
 | 0.5.1 | 2026-08-08 | ✅ Maintenance: TypeScript 7 build toolchain, `action-gh-release` v3, release-on-version-bump ([JS-013](decisions.md#js-013--the-merge-is-the-release)), this roadmap and the decision log |
 | 0.6.0 | 2026-08-08 | ✅ `checkUrl` / `isUrlAllowed` (non-throwing policy check), `maxBytes` response cap with the new `blocked_response_size` reason |
 | 0.6.1 | 2026-08-08 | ✅ **Security:** `safeFetch` ran no DNS checks on Bun when pinning was active (the default with `undici` installed) — the pre-connect check now runs in every mode ([JS-016](decisions.md#js-016--a-guard-may-not-depend-on-the-host-honouring-a-hook)) |
+| 0.7.0 | 2026-08-08 | ✅ `singleHostPolicy` (origin lock, port included) and `createHonoUrlGuard` at `./hono` ([JS-018](decisions.md#js-018--singlehostpolicy-locks-the-origin-port-included), [JS-019](decisions.md#js-019--the-hono-adapter-is-typed-structurally-and-tested-against-real-hono)) |
 
 Two releases came straight from consumer integration feedback: 0.4.0
 (AskLinq had hand-rolled the redirect loop) and 0.5.0 (both options were
@@ -43,38 +44,24 @@ asked for by the same integration).
 
 ## Next
 
-**Nothing is queued.** Both P1s shipped in 0.6.0 on 2026-08-08
-([JS-014](decisions.md#js-014--the-non-throwing-check-catches-validate-rather-than-re-deriving-it),
-[JS-015](decisions.md#js-015--maxbytes-blocks-rather-than-truncates)), so
-`[Unreleased]` is empty and `main` agrees with npm.
+**Nothing is queued.** The two code P2s shipped in 0.7.0 on 2026-08-08
+([JS-018](decisions.md#js-018--singlehostpolicy-locks-the-origin-port-included),
+[JS-019](decisions.md#js-019--the-hono-adapter-is-typed-structurally-and-tested-against-real-hono)),
+so `[Unreleased]` is empty and `main` agrees with npm.
 
-The next substantive change is a P2 pick. There is also follow-up work
-these releases created rather than closed: AskLinq should now drop its
-hand-rolled `hostname !==` link filter and its after-the-fact size caps in
-favour of `isUrlAllowed` and `maxBytes`. Until it does, the library gained
-the API but the consumer still carries the workaround.
+What remains under P2 is the docs-site language gap; P3 is unchanged.
+There is also standing follow-up work these releases create rather than
+close: AskLinq consumed `isUrlAllowed` and `maxBytes` in its D-032, but
+still hand-derives a single-host policy in `bridge/execute.ts` and calls
+`guardedFetch` directly from Hono routes. Until it adopts
+`singleHostPolicy` and `createHonoUrlGuard`, the library has the API and
+the consumer still carries the workaround.
 
 ## Candidates
 
 Proposals, not commitments — priorities are a recommendation for the owner
 to confirm. Each is backed by something observed in a real consumer or by a
 parity gap with the JVM sibling.
-
-### P2 — `singleHostPolicy(baseUrl)`
-
-`sameSitePolicy` strips a leading `www.` because it exists for
-"crawl the customer's own site". A caller that wants the exact registered
-host and nothing else re-derives the policy by hand (`policyFor` in
-`bridge/execute.ts`). A sibling helper with no `www.` special-casing would
-cover it, and would keep the two intents visibly distinct at call sites.
-
-### P2 — Hono middleware
-
-The framework adapters are Express and Vite; the one production consumer
-runs Hono on Cloudflare Workers and calls `guardedFetch` directly. Hono is
-also where the Workers-safe half of this package naturally lands. Ship it
-as a separate entry point (`./hono`), like `./vite`, so it stays out of the
-root bundle.
 
 ### P2 — bilingual docs site
 

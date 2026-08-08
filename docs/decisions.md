@@ -521,3 +521,99 @@ for the wrong reason.
 **Revisit when.** Bun starts honouring `connect.lookup`. Even then the
 pre-connect check stays: the point is that the guarantee does not depend
 on which runtime is underneath.
+
+---
+
+## JS-018 — `singleHostPolicy` locks the origin, port included
+
+**Shipped:** 0.7.0 (2026-08-08)
+
+**Context.** `sameSitePolicy` strips a leading `www.` and matches by
+suffix, because it exists for "crawl the site the user just submitted"
+([JS-007](#js-007--samesitepolicy-strips-a-leading-www)). A caller with a
+*known* endpoint — a registered API base, a webhook target — wants the
+opposite and had to write the policy by hand. AskLinq's bridge does
+exactly that in `bridge/execute.ts`.
+
+**Decision.** A sibling helper that locks the **origin**: scheme, host,
+and port. No `www.` peer, no subdomains. Two named helpers for two
+intents, so the choice is visible at the call site rather than encoded in
+whichever fields someone remembered to set.
+
+**Locking the port is the substance of it.** The default `allowedPorts`
+is `[-1, 80, 443]`, so the hand-written version everyone writes —
+`{ exactHosts: [new URL(base).hostname] }` — **rejects its own base URL**
+when that base has a non-standard port. It fails quietly, only on the
+deployments that use one, and looks like an unrelated connectivity
+problem. The helper derives the port from the base URL, and reuses
+`defaultPortForScheme` from `policy.ts` rather than re-deriving the
+scheme-default table: two copies of that mapping would be free to
+disagree, and the symptom would be precisely this bug
+([JS-014](#js-014--the-non-throwing-check-catches-validate-rather-than-re-deriving-it)
+again, in a different place).
+
+**Alternatives.** An option on `sameSitePolicy` (`{ exact: true }`) — one
+function with a flag that inverts its matching rule is harder to read at
+the call site than two names; deriving from an origin string rather than a
+URL (callers hold base URLs with paths, so this just moves the parsing).
+
+**Trade-off.** Overrides are additive for `exactHosts`/`suffixes`, so
+passing them **widens** the lock. That is consistent with
+`sameSitePolicy` and with the package's fail-closed stance, but it means
+"single host" describes the default, not a guarantee the caller cannot
+undo.
+
+**Revisit when.** Callers need an origin lock that overrides cannot
+widen — then it is a separate, explicitly named constructor, not a flag.
+
+---
+
+## JS-019 — The Hono adapter is typed structurally and tested against real Hono
+
+**Shipped:** 0.7.0 (2026-08-08)
+
+**Context.** The framework adapters were Express and Vite, while the one
+production consumer runs Hono on Cloudflare Workers — the runtime the
+`guardedFetch` half of this package exists for — and called the guard by
+hand in every route.
+
+**Decision.** `createHonoUrlGuard` on its own entry point (`./hono`), so
+nothing lands in the root bundle. Typed against the *shape* of a Hono
+context (`MinimalHonoContext`) rather than importing Hono, matching what
+`express.ts` and `vite.ts` already do: the package keeps zero
+dependencies, and anything with the same shape works.
+
+**And tested against real Hono, in a second file.** Structural typing
+buys independence at the cost of a guess: the interface is my model of
+Hono, and a model can be wrong while every test that uses it passes. That
+is not a hypothetical here — it is what 0.6.1 was
+([JS-016](#js-016--a-guard-may-not-depend-on-the-host-honouring-a-hook)),
+where the suite only ever ran where the assumed hook existed. So `hono.ts`
+is driven twice: once through a fake that proves the middleware does what
+it says, once through real Hono that proves the assumptions hold. The one
+that mattered was body caching — the middleware reads the body, and the
+handler must still be able to read it. Hono does cache. That is now
+verified rather than believed.
+
+**Multipart bodies are deliberately not scanned.** `application/json`
+(and `+json`) and `application/x-www-form-urlencoded` are; parsing
+`multipart/form-data` would buffer uploaded files inside a check that runs
+on every request, turning a safety control into a memory cost. The gap is
+stated in the README, in the source, and pinned by a test, because an
+unstated gap in a guard is worse than a stated one — it reads as coverage.
+
+**Alternatives.** Importing Hono as a peer dependency (types would be
+exact, at the cost of a dependency and version coupling for everyone,
+including the majority who never touch this entry point); scanning every
+body type (the multipart cost); no adapter at all and leaving consumers to
+call `guardToolInput` per route — which is what they were doing, once per
+route, differently each time.
+
+**Trade-off.** A structural type can drift from Hono's real one across
+major versions without a compile error anywhere — the real-Hono test file
+is what would catch that, and it only catches it for the Hono version in
+`devDependencies`.
+
+**Revisit when.** Hono changes its context shape, or a consumer needs
+multipart scanning badly enough to accept the cost — the latter being a
+separate opt-in option, not a change to the default.

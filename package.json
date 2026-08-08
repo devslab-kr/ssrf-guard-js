@@ -1,6 +1,6 @@
 {
   "name": "@devslab/ssrf-guard-js",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "SSRF protection for JavaScript and TypeScript: URL policy validation, private-network blocking, redirect checks, and LLM tool-input guards.",
   "license": "Apache-2.0",
   "type": "module",
@@ -51,6 +51,16 @@
         "types": "./dist/vite.d.cts",
         "default": "./dist/vite.cjs"
       }
+    },
+    "./hono": {
+      "import": {
+        "types": "./dist/hono.d.mts",
+        "default": "./dist/hono.mjs"
+      },
+      "require": {
+        "types": "./dist/hono.d.cts",
+        "default": "./dist/hono.cjs"
+      }
     }
   },
   "files": [
@@ -80,6 +90,7 @@
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
+    "hono": "^4.13.1",
     "tsdown": "^0.22.14",
     "typescript": "^7.0.2",
     "undici": "^8.7.0",

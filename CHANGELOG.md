@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-08-08
+
+Two additions, both from the same production integration: a policy
+helper for the "known endpoint" case, and a Hono middleware for the
+runtime this package's Workers half was built for. Nothing existing
+changes.
+
+### Added
+
+- `singleHostPolicy(url, overrides?)` — the sibling of `sameSitePolicy`,
+  for the other intent. Locks a fetch, redirects included, to the given
+  URL's **origin**: scheme, host, **and port**. No `www.` peer, no
+  subdomains. Use it for a registered API base, a webhook target, a
+  configured upstream — anywhere the exact endpoint is known and anything
+  else is a mistake; `sameSitePolicy` remains the one for a site a user
+  submitted.
+
+  Locking the port is the part that is easy to get wrong by hand: the
+  default `allowedPorts` is `[-1, 80, 443]`, so a hand-written
+  `{ exactHosts: [u.hostname] }` derived from a base like
+  `https://api.example.com:8443/v1` **rejects its own base URL** —
+  quietly, and only on non-standard-port deployments.
+
+- `createHonoUrlGuard(policy, options?)` at
+  `@devslab/ssrf-guard-js/hono` — Hono middleware, the Workers-native
+  counterpart to `createExpressUrlGuard`. Scans query parameters (and
+  optionally path parameters and the request body) for URLs the policy
+  rejects, and answers with the same structured `ssrf_blocked` payload
+  instead of letting the handler fetch them.
+
+  Typed structurally against the shape of a Hono context rather than
+  importing Hono, so the package stays dependency-free. A separate entry
+  point, so nothing lands in the root bundle.
+
+  **Body scanning covers `application/json` (and `+json`) and
+  `application/x-www-form-urlencoded`. `multipart/form-data` is not
+  scanned** — parsing it would buffer uploaded files inside a check that
+  runs on every request. Route uploads past this middleware, or validate
+  their URL fields in the handler. Hono caches parsed bodies, so the
+  middleware reading the body does not consume it.
+
 ## [0.6.1] - 2026-08-08
 
 ### Security

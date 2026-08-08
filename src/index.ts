@@ -9,7 +9,7 @@ export {
 } from './net.js';
 export { checkUrl, isUrlAllowed, UrlPolicy, validateUrl } from './policy.js';
 export type { UrlCheckResult } from './policy.js';
-export { guardedFetch, sameSitePolicy } from './guarded-fetch.js';
+export { guardedFetch, sameSitePolicy, singleHostPolicy } from './guarded-fetch.js';
 export type { GuardedFetchOptions } from './guarded-fetch.js';
 export type { FetchImpl } from './redirect.js';
 export { assertResolvedIpsAllowed, safeFetch } from './safe-fetch.js';
