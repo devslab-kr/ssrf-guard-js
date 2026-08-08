@@ -42,6 +42,23 @@ validateUrl('https://api.example.com/v1', {
 `exactHosts`와 `suffixes`가 비어 있으면 아무 host도 허용하지 않습니다.
 기본 동작은 fail-closed입니다.
 
+`validateUrl`은 예외를 던집니다. fetch 주변의 판단 — 크롤러가 어떤 링크를 큐에
+넣을지, 여러 URL 중 어떤 것을 거부로 보고할지 — 에는 예외 없이 물어보세요:
+
+```ts
+import { checkUrl, isUrlAllowed } from '@devslab/ssrf-guard-js';
+
+const result = checkUrl(link, policy);
+if (!result.allowed) log.debug(`skipped ${link}: ${result.error.reason}`);
+
+const crawlable = links.filter((link) => isUrlAllowed(link, policy));
+```
+
+둘 다 `validateUrl`과 **같은 코드 경로**를 탑니다. 그래서 답이 언제나 fetch
+가드의 판단과 일치합니다 — 손으로 쓴 host 비교는 그렇지 않습니다. URL 시점의
+답이라는 점에 유의하세요: `safeFetch`의 DNS 검사에는 예외를 던지지 않는
+대응물이 없습니다. 그걸 알려면 실제로 resolve해야 하기 때문입니다.
+
 ## LLM Tool Input Guard
 
 ```ts
@@ -106,6 +123,29 @@ const response = await safeFetch(input, policy, {
   },
 });
 ```
+
+### 응답 크기 상한
+
+둘 다 `maxBytes`를 받습니다. 끝없이 흘려보내는 응답이 호출부를 고갈시키지
+못하게 합니다:
+
+```ts
+const res = await guardedFetch(url, policy, { maxBytes: 2_000_000 });
+const body = await res.text(); // 상한을 넘기면 reject
+```
+
+두 군데에서 검사합니다. 한쪽만으로는 부족하기 때문입니다 — `Content-Length`가
+상한을 넘으면 한 바이트도 읽기 전에 거부하고, 그 헤더를 생략하거나 축소해서
+보내는 응답은 스트리밍 중 누적 카운트가 잡습니다.
+
+상한 초과는 `blocked_response_size` 사유의 `SsrfGuardError`입니다 — **조용한
+잘림이 아닙니다**. 잘림이었다면 부분 문서를 "부분"이라는 신호 없이 건네주게
+됩니다. 잘라 쓰고 싶다면 에러를 잡아서 직접 결정하세요.
+
+`maxBytes`는 음이 아닌 정수여야 합니다. 그 외의 값(예: 잘못된 env 파싱에서 온
+`NaN`)은 요청 전에 `TypeError`로 던집니다 — 상한이 조용히 꺼지지 않도록. 상한이
+적용된 응답은 새 `Response` 객체라 `Response.url`이 넘어오지 않습니다.
+`onFinalUrl`을 쓰세요.
 
 ### DNS pinning (optional)
 

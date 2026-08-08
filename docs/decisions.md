@@ -377,3 +377,84 @@ a human pausing at the tag, and accepted deliberately for the automation.
 
 **Revisit when.** A bad version reaches npm this way, or the release
 cadence slows enough that the manual gate costs nothing.
+
+---
+
+## JS-014 — The non-throwing check catches `validate` rather than re-deriving it
+
+**Shipped:** 0.6.0 (2026-08-08)
+
+**Context.** `validateUrl` throws and `HostPolicy.allows()` covers only the
+host, so a caller deciding "should I even try this URL" — which links a
+crawler enqueues, which of a batch to report as rejected — had no
+policy-shaped API. AskLinq's crawler wrote `target.hostname !==
+base.hostname` instead, which disagrees with `sameSitePolicy`: its
+`www.`-stripping means apex ↔ `www` links the fetch guard *would* allow
+were dropped before they were ever tried.
+
+**Decision.** Add `checkUrl` (returning `{ allowed, url | error }`) and
+`isUrlAllowed`, plus `UrlPolicy.check()`. Implement them by **catching
+`validate`**, not by re-deriving the checks.
+
+**The implementation choice is the decision.** A second implementation is
+free to drift, and a predicate that disagrees with the guard is worse than
+no predicate — it makes callers confident about the wrong answer. This is
+the same failure shape as the 0.1.2 bypass, where a separately written
+URL-collection filter drifted from the scheme check downstream. A test
+asserts the two agree across a matrix of inputs, so the property is pinned
+rather than merely intended.
+
+**Alternatives.** A boolean-only API (loses the reason, which callers want
+for logging); returning `null` for rejection (same loss); duplicating the
+checks in a branch-free form for speed (the drift risk, for a cost nobody
+had measured).
+
+**Trade-off.** Every rejected URL constructs and throws an exception
+internally, which is slower than a plain comparison. For crawler-scale
+link filtering that is irrelevant, and it buys the guarantee that the
+predicate and the guard can never disagree.
+
+**Revisit when.** A caller profiles this as a real cost — at which point
+the fix is memoising per policy, not a second implementation.
+
+---
+
+## JS-015 — `maxBytes` blocks rather than truncates
+
+**Shipped:** 0.6.0 (2026-08-08)
+
+**Context.** Both AskLinq call sites capped response size themselves,
+*after* `await res.text()` had already pulled the whole body
+(`BRIDGE_RESPONSE_MAX_CHARS`, `MAX_BODY_CHARS`). That is a display
+convenience, not a control: the bytes already crossed the wire, so an
+endpoint that streams without end still exhausts the caller.
+
+**Decision.** A `maxBytes` option on `guardedFetch` and `safeFetch`,
+enforced in **two** places because either alone is insufficient — an
+oversized `Content-Length` is rejected before a byte is read, and a
+streaming byte count catches bodies that omit or understate it. Exceeding
+it raises `SsrfGuardError` with a new `blocked_response_size` reason.
+
+**Blocking, not truncating.** A caller handed a short body with no signal
+would treat a partial document as the whole one, turning a size limit into
+a correctness bug — and a silent partial read is exactly the kind of thing
+that looks fine in tests. Callers who want truncation can catch the error
+and choose it explicitly.
+
+**Alternatives.** Truncate and set a flag on the response (a flag nobody
+checks is a silent truncation with extra steps); `Content-Length` only
+(trivially defeated by omitting the header); buffering the whole body and
+checking afterwards (that is the workaround this replaces).
+
+**Trade-off.** A capped response is a **new** `Response` object, so `url`,
+`redirected`, and `type` are lost — mitigated by `onFinalUrl`
+([JS-009](#js-009--onfinalurl-instead-of-relying-on-responseurl)), which is
+more reliable than `Response.url` anyway. Adding to `BlockReason` also
+breaks consumers who switch over it exhaustively, hence the minor bump.
+And an invalid `maxBytes` throws `TypeError` before the request rather than
+being coerced: a `NaN` from `Number(process.env.X)` would otherwise compare
+false against every size and disable the cap without saying so.
+
+**Revisit when.** Callers need a truncating mode often enough that
+catching the error is real friction — then it is a separate, explicitly
+named option, not a change to this one.

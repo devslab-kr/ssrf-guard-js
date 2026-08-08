@@ -2,6 +2,7 @@ import { SsrfGuardError } from './error.js';
 import { normalizeHost } from './net.js';
 import { UrlPolicy, validateUrl } from './policy.js';
 import { followRedirectsGuarded, type FetchImpl } from './redirect.js';
+import { normalizeMaxBytes } from './response-cap.js';
 import type { UrlPolicyOptions } from './types.js';
 
 /**
@@ -32,6 +33,14 @@ export interface GuardedFetchOptions extends RequestInit {
    * empty. Not called when the fetch throws.
    */
   onFinalUrl?: (url: URL) => void;
+  /**
+   * Maximum response body size in bytes. An oversized body is rejected
+   * with a `blocked_response_size` `SsrfGuardError` — on the declared
+   * `Content-Length` before anything is read, or mid-stream at read
+   * time when the length is absent or understated. Never truncated
+   * silently. Must be a non-negative integer.
+   */
+  maxBytes?: number;
 }
 
 export async function guardedFetch(
@@ -41,7 +50,8 @@ export async function guardedFetch(
 ): Promise<Response> {
   const urlPolicy = policy instanceof UrlPolicy ? policy : new UrlPolicy(policy);
   const url = validateUrl(input, urlPolicy);
-  const { maxRedirects = 5, fetchImpl, onFinalUrl, ...requestInit } = init;
+  const { maxRedirects = 5, fetchImpl, onFinalUrl, maxBytes, ...requestInit } = init;
+  const cap = normalizeMaxBytes(maxBytes);
 
   return followRedirectsGuarded({
     url,
@@ -50,6 +60,7 @@ export async function guardedFetch(
     maxRedirects,
     fetchImpl: fetchImpl ?? ((u, i) => fetch(u, i)),
     ...(onFinalUrl ? { onFinalUrl } : {}),
+    ...(cap === undefined ? {} : { maxBytes: cap }),
   });
 }
 

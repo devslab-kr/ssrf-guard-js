@@ -1,5 +1,6 @@
 import { SsrfGuardError } from './error.js';
 import { UrlPolicy, validateUrl } from './policy.js';
+import { capResponseBody } from './response-cap.js';
 
 /**
  * The shared redirect-revalidation loop behind `safeFetch` (Node, adds
@@ -34,10 +35,26 @@ export interface RedirectLoopArgs {
   extraInit?: Record<string, unknown>;
   /** Called with the final validated URL when a response is returned. */
   onFinalUrl?: (url: URL) => void;
+  /** Cap the final response body; see `capResponseBody`. */
+  maxBytes?: number;
 }
 
 export async function followRedirectsGuarded(args: RedirectLoopArgs): Promise<Response> {
   const { policy, maxRedirects, fetchImpl, beforeHop, mapFetchError, extraInit, onFinalUrl } = args;
+  const { maxBytes } = args;
+
+  // Redirect hop bodies are cancelled, never read, so the cap applies to
+  // the final response only. Capping runs before onFinalUrl so a body
+  // rejected on its declared length reports like any other block, with
+  // no callback. A body that overruns mid-stream cannot: by then the
+  // fetch has succeeded and the failure surfaces at read time.
+  const finish = async (response: Response, finalUrl: URL): Promise<Response> => {
+    const capped =
+      maxBytes === undefined ? response : await capResponseBody(response, maxBytes, finalUrl);
+    onFinalUrl?.(finalUrl);
+    return capped;
+  };
+
   const requestInit = args.init;
   const headers = new Headers(requestInit.headers);
   let url = args.url;
@@ -62,14 +79,12 @@ export async function followRedirectsGuarded(args: RedirectLoopArgs): Promise<Re
     }
 
     if (!isRedirect(response.status)) {
-      onFinalUrl?.(url);
-      return response;
+      return finish(response, url);
     }
 
     const location = response.headers.get('location');
     if (!location) {
-      onFinalUrl?.(url);
-      return response;
+      return finish(response, url);
     }
 
     await response.body?.cancel();

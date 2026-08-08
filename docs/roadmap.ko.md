@@ -12,8 +12,8 @@
 
 ## 현재 상태
 
-- **배포:** `@devslab/ssrf-guard-js` **0.5.1** (npm, 2026-08-08)
-- **테스트:** 9개 파일 153개, 2026-08-08 기준 전부 통과
+- **배포:** `@devslab/ssrf-guard-js` **0.6.0** (npm, 2026-08-08)
+- **테스트:** 11개 파일 187개, 2026-08-08 기준 전부 통과
 - **엔트리 포인트:** 루트(`.`)와 `./vite`
 - **선택 peer:** `undici >=6` (`safeFetch`의 DNS 피닝 활성화)
 - **프로덕션 소비자:** AskLinq (`devslab-kr/asklinq`) — URL 인제스트,
@@ -32,45 +32,27 @@
 | 0.4.0 | 2026-07-13 | ✅ Workers/브라우저/엣지용 `guardedFetch` + `sameSitePolicy`, `node:dns` 지연 임포트, 리다이렉트 재검증 루프 공유 |
 | 0.5.0 | 2026-07-30 | ✅ `scanEmbedded`(옵트인 문자열 중간 URL 추출), `onFinalUrl` 콜백, `GuardToolInputOptions` / `SafeFetchOptions` 공개 |
 | 0.5.1 | 2026-08-08 | ✅ 유지보수: TypeScript 7 빌드 툴체인, `action-gh-release` v3, 버전 범프 머지 = 릴리스([JS-013](decisions.ko.md#js-013--머지가-곧-릴리스)), 이 로드맵과 결정 로그 |
+| 0.6.0 | 2026-08-08 | ✅ `checkUrl` / `isUrlAllowed`(예외 없는 정책 판정), `maxBytes` 응답 상한과 신규 `blocked_response_size` 사유 |
 
 두 릴리스는 소비자 통합 피드백에서 직접 나왔다 — 0.4.0(AskLinq가 리다이렉트
 루프를 손으로 짜고 있었다)과 0.5.0(두 옵션 모두 같은 통합에서 요청).
 
 ## 다음
 
-**대기 중인 작업 없음.** `[Unreleased]`는 비어 있다 — TypeScript 7 툴체인과
-CI 범프는 2026-08-08에 0.5.1로 나갔고, `main`과 npm이 일치한다.
+**대기 중인 작업 없음.** 두 P1이 2026-08-08에 0.6.0으로 나갔다
+([JS-014](decisions.ko.md#js-014--예외-없는-판정은-validate를-다시-구현하지-않고-잡는다),
+[JS-015](decisions.ko.md#js-015--maxbytes는-자르지-않고-차단한다)). `[Unreleased]`는
+비어 있고 `main`과 npm이 일치한다.
 
-다음 실질 변경은 후보 중 무엇을 집느냐다. 권고는 두 P1을 함께 가져가는 것 —
-같은 표면(호출부가 정책에 물을 수 있는 것, 가드 fetch가 강제하는 것)을 건드리고,
-둘 다 실제 소비자가 부재를 우회해야 했기 때문에 존재한다.
+다음 실질 변경은 P2 중 무엇을 집느냐다. 그리고 이번 릴리스가 닫은 게 아니라
+**만들어낸** 후속 작업이 있다: AskLinq가 손으로 쓴 `hostname !==` 링크 필터와
+사후 크기 상한을 `isUrlAllowed`·`maxBytes`로 갈아야 한다. 그 전까지는 라이브러리만
+API를 얻었고 소비자는 여전히 우회를 짊어지고 있다.
 
 ## 후보
 
 확정이 아니라 제안이며, 우선순위는 소유자 확인을 기다리는 권고다. 각 항목은
 실제 소비자에서 관측된 사실이거나 JVM 자매와의 격차에 근거한다.
-
-### P1 — 예외를 던지지 않는 URL 판정 API
-
-`validateUrl`은 예외를 던지고 `HostPolicy.allows()`는 호스트만 본다. 그래서
-"이 링크를 큐에 넣어도 되나"를 판단하려는 소비자가 부를 수 있는, 정책 모양의
-API가 없다. AskLinq 크롤러는 결국 `target.hostname !== base.hostname`을 손으로
-쓴다(`ingest/url.ts`의 `extractSameSiteLinks`) — 이는 `sameSitePolicy`와 조용히
-어긋난다. `www.` 제거 규칙 때문에, **fetch 가드였다면 허용했을** apex ↔ `www`
-링크가 시도조차 되기 전에 버려진다. 실제 가드와 어긋나는 정책 로직 중복은
-0.1.2 우회를 만들어낸 바로 그 실패 형태다.
-
-형태: `isUrlAllowed(url, policy): boolean` 또는 던지지 않고 결과를 돌려주는
-`checkUrl(url, policy)` — `validateUrl`과 같은 코드 경로, 다른 반환 규약.
-
-### P1 — 가드 fetch의 응답 크기 상한
-
-AskLinq의 두 호출부 모두 응답 크기를 **본문을 전부 읽은 뒤** 스스로 자른다
-(`bridge/execute.ts`의 `BRIDGE_RESPONSE_MAX_CHARS`, `ingest/url.ts`의
-`MAX_BODY_CHARS`). 다운로드가 끝난 뒤의 상한은 보호가 아니라 편의다 — 바이트는
-이미 전선을 건넜다. `guardedFetch` / `safeFetch`에 스트림을 중간에 끊는
-`maxBytes` 옵션이 있으면 보호가 되고, 무한히 흘려보내는 SSRF 표적은 실재하는
-부류다.
 
 ### P2 — `singleHostPolicy(baseUrl)`
 

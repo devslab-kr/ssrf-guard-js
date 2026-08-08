@@ -41,6 +41,24 @@ validateUrl('https://api.example.com/v1', {
 Empty `exactHosts` and `suffixes` are fail-closed: no host is allowed until
 you configure one.
 
+`validateUrl` throws. For the decisions that surround a fetch — which links
+a crawler enqueues, which of a batch of URLs to report as rejected — ask
+without exceptions:
+
+```ts
+import { checkUrl, isUrlAllowed } from '@devslab/ssrf-guard-js';
+
+const result = checkUrl(link, policy);
+if (!result.allowed) log.debug(`skipped ${link}: ${result.error.reason}`);
+
+const crawlable = links.filter((link) => isUrlAllowed(link, policy));
+```
+
+Both run the same code path as `validateUrl`, so the answer always agrees
+with what the fetch guards would do — which a hand-written host comparison
+does not. This is a URL-time answer only: `safeFetch`'s DNS checks have no
+non-throwing equivalent, because knowing that requires actually resolving.
+
 Defaults:
 
 - `allowedSchemes`: `['http', 'https']`
@@ -119,6 +137,30 @@ const response = await safeFetch(input, policy, {
   },
 });
 ```
+
+### Response size cap
+
+Both also accept `maxBytes`, so a response that streams without end cannot
+exhaust the caller:
+
+```ts
+const res = await guardedFetch(url, policy, { maxBytes: 2_000_000 });
+const body = await res.text(); // rejects if the body runs past the cap
+```
+
+It is checked twice, because either alone is insufficient: an oversized
+`Content-Length` is rejected before a byte is read, and a streaming count
+catches bodies that omit or understate it.
+
+Exceeding the cap raises an `SsrfGuardError` with reason
+`blocked_response_size` — **never a silent truncation**, which would hand
+you a partial document with no signal that it is partial. If you want
+truncation, catch the error and decide that yourself.
+
+`maxBytes` must be a non-negative integer; anything else throws a
+`TypeError` before the request is made, so a bad value cannot quietly turn
+the cap off. A capped response is a new `Response` object, so
+`Response.url` is not carried over — use `onFinalUrl`.
 
 ### DNS pinning (optional)
 

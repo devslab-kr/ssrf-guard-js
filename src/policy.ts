@@ -79,10 +79,66 @@ export class UrlPolicy {
 
     return url;
   }
+
+  /**
+   * `validate` without the throw. Deliberately implemented by catching
+   * `validate` rather than by re-deriving the checks: a second
+   * implementation would be free to drift from the one the fetch guards
+   * actually enforce, and a predicate that disagrees with the guard is
+   * worse than no predicate — it makes callers confident about the
+   * wrong answer.
+   */
+  check(input: string | URL): UrlCheckResult {
+    try {
+      return { allowed: true, url: this.validate(input) };
+    } catch (error) {
+      if (error instanceof SsrfGuardError) return { allowed: false, error };
+      throw error;
+    }
+  }
 }
+
+/**
+ * The outcome of a non-throwing policy check. Read `error.reason` for a
+ * stable `BlockReason` when `allowed` is `false`.
+ */
+export type UrlCheckResult =
+  | { allowed: true; url: URL }
+  | { allowed: false; error: SsrfGuardError };
 
 export function validateUrl(input: string | URL, policy: UrlPolicyOptions | UrlPolicy = {}): URL {
   return policy instanceof UrlPolicy ? policy.validate(input) : new UrlPolicy(policy).validate(input);
+}
+
+/**
+ * Ask the policy about a URL without exceptions — for the "should I even
+ * try this one?" decisions that surround a guarded fetch: which links a
+ * crawler enqueues, which of a batch of URLs to report as rejected, which
+ * candidate to show a user. Same code path as `validateUrl`, so the answer
+ * always agrees with what the fetch guards would do.
+ *
+ * ```ts
+ * const result = checkUrl(link, policy);
+ * if (!result.allowed) log.debug(`skipped ${link}: ${result.error.reason}`);
+ * ```
+ *
+ * This is a URL-time answer only. It says nothing about where the host
+ * resolves — `safeFetch`'s DNS checks have no non-throwing equivalent,
+ * because knowing that requires actually resolving.
+ */
+export function checkUrl(
+  input: string | URL,
+  policy: UrlPolicyOptions | UrlPolicy = {},
+): UrlCheckResult {
+  return policy instanceof UrlPolicy ? policy.check(input) : new UrlPolicy(policy).check(input);
+}
+
+/** `checkUrl` reduced to a boolean, for `filter`/`if` call sites. */
+export function isUrlAllowed(
+  input: string | URL,
+  policy: UrlPolicyOptions | UrlPolicy = {},
+): boolean {
+  return checkUrl(input, policy).allowed;
 }
 
 function defaultPortForScheme(scheme: string): number {

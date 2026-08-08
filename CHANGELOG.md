@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-08
+
+Both additions close gaps found by reading how the first production
+consumer had to work around their absence. Defaults and existing
+signatures are unchanged: `checkUrl` is new API, and `maxBytes` is off
+unless you set it.
+
+### Added
+
+- `checkUrl(url, policy)` and `isUrlAllowed(url, policy)` — ask the policy
+  about a URL without exceptions, for the decisions that surround a
+  guarded fetch: which links a crawler enqueues, which of a batch to
+  report as rejected. `checkUrl` returns
+  `{ allowed: true, url }` or `{ allowed: false, error }` (read
+  `error.reason` for a stable `BlockReason`); `isUrlAllowed` is the
+  boolean form. Also available as `UrlPolicy.check()`.
+
+  These run the same code path as `validateUrl` — they are implemented by
+  catching it, not by re-deriving the checks — so a predicate can never
+  drift from what the fetch guards actually enforce. Callers were
+  otherwise hand-writing host comparisons that already disagreed with
+  `sameSitePolicy`, silently dropping apex ↔ `www` links the guard would
+  have allowed.
+
+  URL-time only: there is no non-throwing equivalent of `safeFetch`'s DNS
+  checks, because answering that requires actually resolving.
+- `maxBytes` option for `safeFetch` and `guardedFetch` — a response-size
+  cap that is enforced rather than applied after the fact. Checked twice,
+  because either alone is insufficient: an oversized `Content-Length` is
+  rejected before a byte is read, and a streaming count catches bodies
+  that omit or understate it. An endpoint that streams without end can no
+  longer exhaust the caller.
+
+  Exceeding the cap raises an `SsrfGuardError` with the new
+  `blocked_response_size` reason — never a silent truncation, which would
+  hand back a partial document with no signal that it is partial. Must be
+  a non-negative integer; anything else (a `NaN` from a bad env parse,
+  say) throws a `TypeError` before the request is made rather than
+  disabling the cap silently.
+
+  Note that a capped response is a new `Response` object, so
+  `Response.url` is not carried over — use `onFinalUrl`, which is more
+  reliable anyway.
+
+### Changed
+
+- `BlockReason` gains `blocked_response_size`. Consumers that exhaustively
+  switch over the union will need a new branch.
+
 ## [0.5.1] - 2026-08-08
 
 Maintenance release. Nothing in the published package behaves

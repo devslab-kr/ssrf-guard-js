@@ -12,8 +12,8 @@ Sibling library: [`devslab-kr/ssrf-guard`](https://github.com/devslab-kr/ssrf-gu
 
 ## Current state
 
-- **Published:** `@devslab/ssrf-guard-js` **0.5.1** (npm, 2026-08-08)
-- **Suite:** 153 tests across 9 files, green as of 2026-08-08
+- **Published:** `@devslab/ssrf-guard-js` **0.6.0** (npm, 2026-08-08)
+- **Suite:** 187 tests across 11 files, green as of 2026-08-08
 - **Entry points:** root (`.`) and `./vite`
 - **Optional peer:** `undici >=6` (enables DNS pinning for `safeFetch`)
 - **Production consumers:** AskLinq (`devslab-kr/asklinq`) — URL ingestion,
@@ -32,6 +32,7 @@ Sibling library: [`devslab-kr/ssrf-guard`](https://github.com/devslab-kr/ssrf-gu
 | 0.4.0 | 2026-07-13 | ✅ `guardedFetch` + `sameSitePolicy` for Workers/browser/edge; `node:dns` imported lazily; shared redirect-revalidation loop |
 | 0.5.0 | 2026-07-30 | ✅ `scanEmbedded` (opt-in mid-string URL extraction), `onFinalUrl` callback, `GuardToolInputOptions` / `SafeFetchOptions` exported |
 | 0.5.1 | 2026-08-08 | ✅ Maintenance: TypeScript 7 build toolchain, `action-gh-release` v3, release-on-version-bump ([JS-013](decisions.md#js-013--the-merge-is-the-release)), this roadmap and the decision log |
+| 0.6.0 | 2026-08-08 | ✅ `checkUrl` / `isUrlAllowed` (non-throwing policy check), `maxBytes` response cap with the new `blocked_response_size` reason |
 
 Two releases came straight from consumer integration feedback: 0.4.0
 (AskLinq had hand-rolled the redirect loop) and 0.5.0 (both options were
@@ -39,44 +40,22 @@ asked for by the same integration).
 
 ## Next
 
-**Nothing is queued.** `[Unreleased]` is empty — the TypeScript 7 toolchain
-and the CI bump went out as 0.5.1 on 2026-08-08, so `main` and npm agree.
+**Nothing is queued.** Both P1s shipped in 0.6.0 on 2026-08-08
+([JS-014](decisions.md#js-014--the-non-throwing-check-catches-validate-rather-than-re-deriving-it),
+[JS-015](decisions.md#js-015--maxbytes-blocks-rather-than-truncates)), so
+`[Unreleased]` is empty and `main` agrees with npm.
 
-The next substantive change is a candidate pick. The recommendation is to
-take both P1s together: they touch the same surface (what a caller can ask
-the policy, and what the guarded fetch enforces), and both exist because a
-real consumer had to work around their absence.
+The next substantive change is a P2 pick. There is also follow-up work
+these releases created rather than closed: AskLinq should now drop its
+hand-rolled `hostname !==` link filter and its after-the-fact size caps in
+favour of `isUrlAllowed` and `maxBytes`. Until it does, the library gained
+the API but the consumer still carries the workaround.
 
 ## Candidates
 
 Proposals, not commitments — priorities are a recommendation for the owner
 to confirm. Each is backed by something observed in a real consumer or by a
 parity gap with the JVM sibling.
-
-### P1 — a non-throwing URL predicate
-
-`validateUrl` throws and `HostPolicy.allows()` only covers the host, so a
-consumer deciding "should I even enqueue this link" has no policy-shaped
-API to call. AskLinq's crawler ends up hand-rolling
-`target.hostname !== base.hostname` (`ingest/url.ts`, `extractSameSiteLinks`) —
-which silently diverges from `sameSitePolicy`, whose `www.`-stripping means
-an apex ↔ `www` link the fetch guard *would* allow gets dropped before it is
-ever tried. Duplicated policy logic that drifts from the real guard is the
-exact failure shape that produced the 0.1.2 bypass.
-
-Shape: something like `isUrlAllowed(url, policy): boolean`, or a
-`checkUrl(url, policy)` returning a result instead of throwing — same code
-path as `validateUrl`, different return convention.
-
-### P1 — response size cap in the guarded fetch
-
-Both AskLinq call sites cap response size themselves, after the body is
-already fully read: `BRIDGE_RESPONSE_MAX_CHARS` (`bridge/execute.ts`) and
-`MAX_BODY_CHARS` (`ingest/url.ts`). A cap applied after the download is a
-truncation convenience, not a protection — the bytes already crossed the
-wire. A `maxBytes` option on `guardedFetch` / `safeFetch` that aborts the
-stream mid-flight would make it one, and SSRF targets that stream forever
-are a real class.
 
 ### P2 — `singleHostPolicy(baseUrl)`
 
