@@ -141,7 +141,14 @@ export function isUrlAllowed(
   return checkUrl(input, policy).allowed;
 }
 
-function defaultPortForScheme(scheme: string): number {
+/**
+ * The port a portless URL of this scheme counts as. Exported so
+ * `singleHostPolicy` derives its port lock from the same table the
+ * validator checks against — two copies of this mapping would be free to
+ * disagree, and the failure would be a policy that rejects its own base
+ * URL.
+ */
+export function defaultPortForScheme(scheme: string): number {
   switch (scheme) {
     case 'http':
     case 'ws':

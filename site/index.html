@@ -494,10 +494,50 @@ const input = 'https://www.customer-site.example/about';
 const response = await guardedFetch(input, sameSitePolicy(input, {
   allowedSchemes: ['https'],
 }));</code></pre>
+
+        <h3>`singleHostPolicy(url, overrides?)`</h3>
+        <p>
+          `sameSitePolicy`의 형제이고 의도가 반대입니다. 엔드포인트가 이미 정해져 있을 때 —
+          등록된 API base, webhook 대상, 설정된 upstream — 그 URL의 **origin**(스킴 · 호스트 ·
+          포트)에 fetch를 잠급니다. `www.` 짝도, 서브도메인도 없습니다.
+        </p>
+        <pre><button class="copy">Copy</button><code>import { guardedFetch, singleHostPolicy } from '@devslab/ssrf-guard-js';
+
+const response = await guardedFetch(target, singleHostPolicy(registeredApiBase));</code></pre>
+
+        <div class="note">
+          포트를 함께 잠그는 게 핵심입니다. 기본 `allowedPorts`가 `[-1, 80, 443]`이라,
+          `https://api.example.com:8443/v1` 같은 base에서 손으로 만든
+          `{ exactHosts: [u.hostname] }`은 **자기 base URL을 거부합니다** — 조용히, 그리고
+          비표준 포트를 쓰는 배포에서만 터집니다.
+        </div>
       </section>
 
       <section id="integrations">
-        <h2>Express / Vite / LangChain 연동</h2>
+        <h2>Express / Hono / Vite / LangChain 연동</h2>
+
+        <h3>Hono: Workers 네이티브 middleware</h3>
+        <p>
+          별도 entry point(`@devslab/ssrf-guard-js/hono`)로 제공합니다. Hono를 import하지 않고
+          context의 모양에만 타입을 맞춰서, 패키지는 의존성 0을 유지합니다.
+        </p>
+        <pre><button class="copy">Copy</button><code>import { Hono } from 'hono';
+import { createHonoUrlGuard } from '@devslab/ssrf-guard-js/hono';
+
+const app = new Hono();
+
+app.post('/crawl', createHonoUrlGuard({ suffixes: ['example.com'] }), async (c) => {
+  const { url } = await c.req.json(); // 이미 검증됨
+  return c.json({ ok: true });
+});</code></pre>
+
+        <div class="note">
+          검사하는 body는 `application/json`(및 `+json`)과
+          `application/x-www-form-urlencoded`입니다. **`multipart/form-data`는 검사하지
+          않습니다** — 매 요청마다 도는 검사 안에서 업로드 파일을 버퍼링하게 되기 때문입니다.
+          Hono가 파싱한 body를 캐시하므로 미들웨어가 읽어도 핸들러의 `c.req.json()`은 그대로
+          동작합니다(실제 Hono로 검증).
+        </div>
 
         <h3>Express: middleware 한 줄 추가</h3>
         <p>사용자가 보낸 body/query 안의 URL을 검사하고, 위험한 URL이면 `400` JSON 응답을 반환합니다.</p>

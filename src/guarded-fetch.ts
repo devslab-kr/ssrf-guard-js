@@ -1,6 +1,6 @@
 import { SsrfGuardError } from './error.js';
 import { normalizeHost } from './net.js';
-import { UrlPolicy, validateUrl } from './policy.js';
+import { defaultPortForScheme, UrlPolicy, validateUrl } from './policy.js';
 import { followRedirectsGuarded, type FetchImpl } from './redirect.js';
 import { normalizeMaxBytes } from './response-cap.js';
 import type { UrlPolicyOptions } from './types.js';
@@ -99,5 +99,61 @@ export function sameSitePolicy(
   return {
     ...overrides,
     suffixes: [...(overrides.suffixes ?? []), site],
+  };
+}
+
+/**
+ * Policy for "talk to exactly this endpoint and nowhere else": locks the
+ * fetch — redirects included — to the given URL's **origin**, meaning its
+ * scheme, host, and port together. No `www.` peer, no subdomains.
+ *
+ * The sibling of `sameSitePolicy`, for the other intent. Use this one for
+ * a registered API base, a webhook target, a configured upstream —
+ * anywhere the exact endpoint is known and anything else is a mistake.
+ * Use `sameSitePolicy` when the input is a site a user submitted and the
+ * whole domain is fair game.
+ *
+ * Locking the port matters and is easy to get wrong by hand: a base of
+ * `https://api.example.com:8443/v1` needs `8443` allowed, which the
+ * package's default `allowedPorts` does not include. A hand-written
+ * `{ exactHosts: [u.hostname] }` therefore rejects its own base URL —
+ * quietly, and only for the non-standard-port deployments.
+ *
+ * ```ts
+ * await guardedFetch(target, singleHostPolicy(registeredApiBase));
+ * ```
+ *
+ * `overrides` merges on top. Note that `exactHosts` and `suffixes` are
+ * additive, so passing them widens the lock rather than replacing it.
+ */
+export function singleHostPolicy(
+  input: string | URL,
+  overrides: UrlPolicyOptions = {},
+): UrlPolicyOptions {
+  let url: URL;
+  try {
+    url = input instanceof URL ? input : new URL(input);
+  } catch (error) {
+    throw new SsrfGuardError('blocked_other', `Invalid URL: ${String(input)}`, {
+      url: String(input),
+      cause: error,
+    });
+  }
+
+  const host = normalizeHost(url.hostname);
+  if (!host) {
+    throw new SsrfGuardError('blocked_host', 'URL is missing a host', {
+      url: String(input),
+    });
+  }
+
+  const scheme = url.protocol.replace(/:$/, '').toLowerCase();
+  const port = url.port === '' ? defaultPortForScheme(scheme) : Number(url.port);
+
+  return {
+    ...overrides,
+    exactHosts: [...(overrides.exactHosts ?? []), host],
+    allowedSchemes: overrides.allowedSchemes ?? [scheme],
+    allowedPorts: overrides.allowedPorts ?? [port],
   };
 }

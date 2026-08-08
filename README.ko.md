@@ -248,6 +248,29 @@ Workers에서 진짜 임의 URL fetch가 필요하면, `pinDns: true`로 `safeFe
 호출하는 작은 Node 기반 egress service를 거치세요 — Worker는 egress service와만
 통신하고, 사용자 제공 URL에는 직접 닿지 않습니다.
 
+### policy 헬퍼 두 개, 서로 다른 의도
+
+엔드포인트가 이미 정해져 있다면 — 등록된 API base, webhook 대상, 설정된
+upstream — `singleHostPolicy`를 쓰세요. 그 URL의 **origin**(스킴 · 호스트 ·
+포트)에 fetch를 잠급니다. `www.` 짝도, 서브도메인도 없습니다.
+
+```ts
+import { guardedFetch, singleHostPolicy } from '@devslab/ssrf-guard-js';
+
+const res = await guardedFetch(target, singleHostPolicy(registeredApiBase));
+```
+
+| | `sameSitePolicy` | `singleHostPolicy` |
+| --- | --- | --- |
+| 용도 | 사용자가 제출한 사이트 | 내가 등록한 엔드포인트 |
+| 호스트 | 도메인 전체, `www.` 제거, 서브도메인 포함 | 그 호스트 하나 |
+| 포트 | policy 기본값(`80`/`443`) | base URL의 포트 |
+
+눈여겨볼 건 포트입니다. 기본 `allowedPorts`가 `[-1, 80, 443]`이라,
+`https://api.example.com:8443/v1`에서 손으로 만든
+`{ exactHosts: [u.hostname] }`은 **자기 base URL을 거부합니다** — 조용히,
+그리고 비표준 포트를 쓰는 배포에서만.
+
 ## Express
 
 ```ts
@@ -272,6 +295,43 @@ app.post(
 
 기본으로 `req.body`와 `req.query`를 검사합니다. 차단해야 할 URL이 있으면 구조화된
 `400` 응답을 반환합니다.
+
+## Hono
+
+Workers 네이티브 대응물이고, 루트 번들 밖에 두려고 별도 entry point로 냅니다.
+Hono를 import하지 않고 Hono context의 **모양**에만 타입을 맞췄기 때문에 패키지는
+의존성 0을 유지합니다.
+
+```ts
+import { Hono } from 'hono';
+import { createHonoUrlGuard } from '@devslab/ssrf-guard-js/hono';
+
+const app = new Hono();
+
+app.post(
+  '/crawl',
+  createHonoUrlGuard({ suffixes: ['example.com'], allowedSchemes: ['https'] }),
+  async (c) => {
+    const { url } = await c.req.json(); // 이미 검증됨
+    return c.json({ ok: true });
+  },
+);
+```
+
+기본으로 query 파라미터와 request body를 검사하고, path 파라미터는
+`{ params: true }`로 켭니다. 차단 시 Express 가드와 동일한 구조화된
+`ssrf_blocked` 페이로드를 반환하며, 상태 코드는 `statusCode`로 바꾸지 않는 한
+`400`입니다.
+
+**검사하는 body 타입:** `application/json`(및 `+json`), 그리고
+`application/x-www-form-urlencoded`. **`multipart/form-data`는 검사하지
+않습니다** — 매 요청마다 도는 검사 안에서 업로드 파일을 버퍼링하게 되기
+때문입니다. 파일 업로드 라우트는 이 미들웨어를 거치지 않게 하거나, 핸들러에서
+URL 필드를 검증하세요.
+
+Hono는 파싱한 body를 캐시하므로 미들웨어가 body를 읽어도 소비되지 않습니다 —
+핸들러의 `c.req.json()`이 그대로 동작합니다. 이건 가정이 아니라 실제 Hono로
+검증했습니다.
 
 ## Vite
 

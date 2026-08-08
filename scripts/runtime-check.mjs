@@ -167,6 +167,49 @@ try {
 
   if (typeof SsrfGuardError !== 'function') fail('SsrfGuardError is exported', 'not a constructor');
   else pass('SsrfGuardError is exported');
+
+  // The secondary entry points are separate files in dist/, so "the package
+  // loads" says nothing about them. The Hono guard in particular targets the
+  // non-Node runtimes, which is exactly where an entry point that resolves on
+  // Node can still fail to resolve.
+  try {
+    const { createHonoUrlGuard } = await import(new URL('../dist/hono.mjs', import.meta.url).href);
+    if (typeof createHonoUrlGuard !== 'function') {
+      fail('./hono entry point loads', 'createHonoUrlGuard is not a function');
+    } else {
+      // Drive it once, so this checks the middleware runs here rather than
+      // merely that the file parsed.
+      let handlerRan = false;
+      let blocked = null;
+      const guard = createHonoUrlGuard({ exactHosts: ['api.example.com'] });
+      await guard(
+        {
+          req: {
+            query: () => ({ url: 'http://169.254.169.254/latest/meta-data/' }),
+            param: () => ({}),
+            header: () => undefined,
+            json: async () => ({}),
+            parseBody: async () => ({}),
+          },
+          json: (body, status) => {
+            blocked = { body, status };
+            return new Response(JSON.stringify(body), { status });
+          },
+        },
+        async () => {
+          handlerRan = true;
+        },
+      );
+
+      if (handlerRan || blocked?.body?.error !== 'ssrf_blocked') {
+        fail('./hono guard blocks a metadata URL', `handlerRan=${handlerRan} body=${JSON.stringify(blocked?.body)}`);
+      } else {
+        pass('./hono guard blocks a metadata URL', `HTTP ${blocked.status}`);
+      }
+    }
+  } catch (error) {
+    fail('./hono entry point loads', String(error));
+  }
 } finally {
   await new Promise((resolve) => server.close(resolve));
 }

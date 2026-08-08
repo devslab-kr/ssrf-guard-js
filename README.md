@@ -267,6 +267,30 @@ through a small Node-based egress service that calls `safeFetch` with
 `pinDns: true` — the Worker talks to the egress service, never to the
 user-supplied URL directly.
 
+### Two policy helpers, two intents
+
+When the endpoint is already known — a registered API base, a webhook
+target, a configured upstream — use `singleHostPolicy` instead. It locks
+the fetch to that URL's **origin**: scheme, host, and port. No `www.`
+peer, no subdomains.
+
+```ts
+import { guardedFetch, singleHostPolicy } from '@devslab/ssrf-guard-js';
+
+const res = await guardedFetch(target, singleHostPolicy(registeredApiBase));
+```
+
+| | `sameSitePolicy` | `singleHostPolicy` |
+| --- | --- | --- |
+| For | a site the user submitted | an endpoint you registered |
+| Host | the domain, `www.` stripped, subdomains included | that host exactly |
+| Port | policy default (`80`/`443`) | the base URL's port |
+
+The port is the part worth noticing. The default `allowedPorts` is
+`[-1, 80, 443]`, so a hand-written `{ exactHosts: [u.hostname] }` derived
+from `https://api.example.com:8443/v1` **rejects its own base URL** —
+quietly, and only on the non-standard-port deployments.
+
 ## Express
 
 ```ts
@@ -291,6 +315,43 @@ app.post(
 
 The middleware scans `req.body` and `req.query` by default. It returns a
 structured `400` response when it finds a blocked URL.
+
+## Hono
+
+The Workers-native counterpart, on its own entry point so it stays out of
+the root bundle. It is typed against the shape of a Hono context rather
+than importing Hono, so the package stays dependency-free.
+
+```ts
+import { Hono } from 'hono';
+import { createHonoUrlGuard } from '@devslab/ssrf-guard-js/hono';
+
+const app = new Hono();
+
+app.post(
+  '/crawl',
+  createHonoUrlGuard({ suffixes: ['example.com'], allowedSchemes: ['https'] }),
+  async (c) => {
+    const { url } = await c.req.json(); // already validated
+    return c.json({ ok: true });
+  },
+);
+```
+
+Query parameters and the request body are scanned by default; path
+parameters with `{ params: true }`. A blocked URL gets the same
+structured `ssrf_blocked` payload as the Express guard, at `400` unless
+you set `statusCode`.
+
+**Which bodies are scanned:** `application/json` (and `+json`) and
+`application/x-www-form-urlencoded`. **`multipart/form-data` is not** —
+parsing it here would buffer uploaded files inside a check that runs on
+every request. Route uploads past this middleware, or validate their URL
+fields in the handler.
+
+Hono caches parsed bodies, so the middleware reading the body does not
+consume it — your handler's own `c.req.json()` still resolves. That is
+verified against real Hono, not assumed.
 
 ## Vite
 
