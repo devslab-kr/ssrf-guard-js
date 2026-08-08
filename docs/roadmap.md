@@ -20,7 +20,8 @@ Sibling library: [`devslab-kr/ssrf-guard`](https://github.com/devslab-kr/ssrf-gu
 - **Optional peer:** `undici >=6` (enables DNS pinning for `safeFetch`)
 - **Production consumers:** AskLinq (`devslab-kr/asklinq`) — URL ingestion,
   brand-color probe, LLM tool-input guard, and the API bridge executor
-- **Docs site:** <https://devslab-kr.github.io/ssrf-guard-js/> (Korean only)
+- **Docs site:** <https://devslab-kr.github.io/ssrf-guard-js/> — English, with
+  Korean at `/ko/`
 
 ## Shipped
 
@@ -37,6 +38,7 @@ Sibling library: [`devslab-kr/ssrf-guard`](https://github.com/devslab-kr/ssrf-gu
 | 0.6.0 | 2026-08-08 | ✅ `checkUrl` / `isUrlAllowed` (non-throwing policy check), `maxBytes` response cap with the new `blocked_response_size` reason |
 | 0.6.1 | 2026-08-08 | ✅ **Security:** `safeFetch` ran no DNS checks on Bun when pinning was active (the default with `undici` installed) — the pre-connect check now runs in every mode ([JS-016](decisions.md#js-016--a-guard-may-not-depend-on-the-host-honouring-a-hook)) |
 | 0.7.0 | 2026-08-08 | ✅ `singleHostPolicy` (origin lock, port included) and `createHonoUrlGuard` at `./hono` ([JS-018](decisions.md#js-018--singlehostpolicy-locks-the-origin-port-included), [JS-019](decisions.md#js-019--the-hono-adapter-is-typed-structurally-and-tested-against-real-hono)) |
+| — | 2026-08-09 | ✅ Docs site: English at `/`, Korean at `/ko/` ([JS-017](decisions.md#js-017--the-landing-page-follows-the-repos-paired-file-convention)) — no release, the site deploys from `main` |
 
 Two releases came straight from consumer integration feedback: 0.4.0
 (AskLinq had hand-rolled the redirect loop) and 0.5.0 (both options were
@@ -62,15 +64,6 @@ the consumer still carries the workaround.
 Proposals, not commitments — priorities are a recommendation for the owner
 to confirm. Each is backed by something observed in a real consumer or by a
 parity gap with the JVM sibling.
-
-### P2 — bilingual docs site
-
-`README.md` has a `README.ko.md` and the JVM sibling's mkdocs site is fully
-bilingual; `site/index.html` is Korean only. English parity for the landing
-page — the gap is the wrong way round from the rest of the repo, where
-English is the primary and `.ko.md` the translation. The landing page is
-the first thing an npm visitor sees, and it is the one surface a
-non-Korean reader cannot fall back from.
 
 ### P2 — a CI job per supported runtime
 

@@ -524,6 +524,54 @@ on which runtime is underneath.
 
 ---
 
+## JS-017 — The landing page follows the repo's paired-file convention
+
+**Shipped:** 2026-08-09 (no release — the site deploys from `main`)
+
+**Context.** `site/index.html` was Korean only, while `README.md` is
+English with a `README.ko.md` translation and every file in `docs/` has a
+`.ko.md` twin. The landing page was the gap, and it is the one surface a
+non-Korean reader arriving from npm cannot fall back from.
+
+**Decision.** English at `/`, Korean at `/ko/`, as two complete files
+that cross-link in the nav. `<html lang>` is set per page.
+
+**Two files rather than runtime i18n.** The org's hub site keys its text
+into an inline dictionary with a language dropdown, and that was the
+obvious precedent to copy. It was rejected because *this repo* already has
+a documentation convention — paired files — used by the README and by
+every document under `docs/`. Introducing a second, different mechanism
+for one page would mean contributors have to know which pattern applies
+where. Retrofitting 700 lines of interleaved prose, tables and code
+samples into a dictionary is also a large, silent-failure-prone edit for
+no reader-visible gain.
+
+**The duplication is real and accepted.** The landing page was edited on
+three separate releases in two days, and each of those edits must now be
+made twice. That is the same cost the README and `docs/` already pay, and
+the same discipline covers it: bilingual pairs are updated together, in
+the same change.
+
+**Alternatives.** Inline dictionary + language toggle (above); English
+only (drops a translation that exists and is used); a `?lang=` query
+switch (needs JS for a static page, and gives translations no distinct
+URL for search engines).
+
+**Trade-off.** The Korean page moved from `/` to `/ko/`, so any existing
+link to the root now lands on English. That is the intended correction —
+an npm visitor should not have to navigate out of a language they may not
+read — but it does change a live URL.
+
+**Watch out.** `scripts/build-pages.mjs` substituted `__PACKAGE_VERSION__`
+in the root `index.html` only. A page in a subdirectory would have shipped
+the literal placeholder to readers; the script now walks every `.html`
+under `site/` and fails if it finds none.
+
+**Revisit when.** A third language is wanted — at that point the
+duplication argument flips and a dictionary becomes the cheaper shape.
+
+---
+
 ## JS-018 — `singleHostPolicy` locks the origin, port included
 
 **Shipped:** 0.7.0 (2026-08-08)

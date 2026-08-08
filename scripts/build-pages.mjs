@@ -1,4 +1,4 @@
-import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const root = process.cwd();
@@ -10,9 +10,20 @@ await rm(outDir, { recursive: true, force: true });
 await mkdir(outDir, { recursive: true });
 await cp(siteDir, outDir, { recursive: true });
 
-const indexPath = path.join(outDir, 'index.html');
-const index = await readFile(indexPath, 'utf8');
-await writeFile(indexPath, index.replaceAll('__PACKAGE_VERSION__', pkg.version));
+// Every page, not just the root one: the translations live in
+// subdirectories (site/ko/), and a page that missed this substitution
+// renders the literal `v__PACKAGE_VERSION__` to readers.
+let substituted = 0;
+for (const entry of await readdir(siteDir, { recursive: true, withFileTypes: true })) {
+  if (!entry.isFile() || !entry.name.endsWith('.html')) continue;
+  const rel = path.relative(siteDir, path.join(entry.parentPath ?? entry.path, entry.name));
+  const filePath = path.join(outDir, rel);
+  const html = await readFile(filePath, 'utf8');
+  await writeFile(filePath, html.replaceAll('__PACKAGE_VERSION__', pkg.version));
+  substituted += 1;
+}
+if (substituted === 0) throw new Error('no HTML pages found under site/');
+console.log(`build-pages: ${substituted} page(s) stamped with v${pkg.version}`);
 
 await writeFile(
   path.join(outDir, 'package.json'),
