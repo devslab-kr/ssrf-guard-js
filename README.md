@@ -5,7 +5,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-Ready-3178C6?logo=typescript&logoColor=white)
 [![License](https://img.shields.io/badge/License-Apache--2.0-blue)](./LICENSE)
 
-**[Docs](https://devslab-kr.github.io/ssrf-guard-js/)** · [한국어](README.ko.md)
+**[Docs](https://devslab-kr.github.io/ssrf-guard-js/)** · [Roadmap](docs/roadmap.md) · [Decisions](docs/decisions.md) · [한국어](README.ko.md)
 
 SSRF protection for JavaScript and TypeScript.
 
