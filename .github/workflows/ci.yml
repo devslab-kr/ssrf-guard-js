@@ -19,3 +19,49 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm verify
+
+  # The unit suite runs on Node only, which is enough for logic but blind to
+  # guarantees that depend on the host honouring a hook. JS-016 was a bypass
+  # every Node test passed straight through: Node calls undici's
+  # `connect.lookup`, Bun accepts it and never does, so the private-IP check
+  # silently vanished there. This job runs the built package on each runtime.
+  runtime:
+    name: runtime (${{ matrix.runtime }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false # one runtime regressing should not hide the others
+      matrix:
+        runtime: [node, bun, deno]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # Installed for every runtime, not just Node: the build runs on Node, and
+      # `undici` must be resolvable from node_modules or the pinned modes below
+      # degrade to "not installed" and the check passes without testing them.
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+
+      - if: matrix.runtime == 'bun'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - if: matrix.runtime == 'deno'
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Run the runtime check
+        run: |
+          case "${{ matrix.runtime }}" in
+            node) node scripts/runtime-check.mjs ;;
+            bun)  bun scripts/runtime-check.mjs ;;
+            deno) deno run -A scripts/runtime-check.mjs ;;
+          esac
