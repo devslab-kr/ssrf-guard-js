@@ -308,7 +308,7 @@ Publishing is handled by GitHub Actions.
 4. Create and push a matching tag, for example:
 
 ```bash
-git tag v0.5.0
+git tag v0.5.1
 git push origin main --tags
 ```
 
