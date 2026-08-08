@@ -425,36 +425,6 @@ Thrown `SsrfGuardError` instances expose stable `reason` values:
 - `blocked_redirect`
 - `blocked_other`
 
-## Maintainer Release
-
-Publishing is handled by GitHub Actions. It needs an npm automation token as
-the repository secret `NPM_TOKEN`.
-
-**The merge is the release.** Open a PR that bumps `version` in
-`package.json` and adds the matching `CHANGELOG.md` section, and merging it
-to `main` runs `Publish to npm`, which verifies the package, publishes it
-with provenance, creates the `vX.Y.Z` tag, and opens a GitHub Release whose
-notes are that CHANGELOG section:
-
-```bash
-npm publish --access public --provenance
-```
-
-The gate is the npm registry, not the tag: if the version in `package.json`
-is already published the workflow is a quiet no-op, so ordinary merges do
-nothing and a re-run can never publish twice.
-
-Pushing a tag by hand still works and does the same thing, minus creating
-the tag:
-
-```bash
-git tag v0.5.1
-git push origin v0.5.1
-```
-
-A hand-pushed tag must match `package.json` — the workflow fails if it
-does not.
-
 ## Family
 
 - [ssrf-guard](https://github.com/devslab-kr/ssrf-guard) — the JVM sibling: the same security model for Spring Boot across 9 HTTP-client modules, including `-springai` / `-langchain4j` for LLM-agent tool URL validation
