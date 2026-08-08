@@ -12,7 +12,7 @@ Sibling library: [`devslab-kr/ssrf-guard`](https://github.com/devslab-kr/ssrf-gu
 
 ## Current state
 
-- **Published:** `@devslab/ssrf-guard-js` **0.5.0** (npm, 2026-07-30)
+- **Published:** `@devslab/ssrf-guard-js` **0.5.1** (npm, 2026-08-08)
 - **Suite:** 153 tests across 9 files, green as of 2026-08-08
 - **Entry points:** root (`.`) and `./vite`
 - **Optional peer:** `undici >=6` (enables DNS pinning for `safeFetch`)
@@ -31,6 +31,7 @@ Sibling library: [`devslab-kr/ssrf-guard`](https://github.com/devslab-kr/ssrf-gu
 | 0.3.0 | 2026-07-05 | ✅ Optional DNS pinning via `undici` (`pinDns`), closing the DNS-rebinding TOCTOU window |
 | 0.4.0 | 2026-07-13 | ✅ `guardedFetch` + `sameSitePolicy` for Workers/browser/edge; `node:dns` imported lazily; shared redirect-revalidation loop |
 | 0.5.0 | 2026-07-30 | ✅ `scanEmbedded` (opt-in mid-string URL extraction), `onFinalUrl` callback, `GuardToolInputOptions` / `SafeFetchOptions` exported |
+| 0.5.1 | 2026-08-08 | ✅ Maintenance: TypeScript 7 build toolchain, `action-gh-release` v3, this roadmap and the decision log |
 
 Two releases came straight from consumer integration feedback: 0.4.0
 (AskLinq had hand-rolled the redirect loop) and 0.5.0 (both options were
@@ -38,18 +39,13 @@ asked for by the same integration).
 
 ## Next
 
-### Cut a release for the `[Unreleased]` changes — **decision needed**
+**Nothing is queued.** `[Unreleased]` is empty — the TypeScript 7 toolchain
+and the CI bump went out as 0.5.1 on 2026-08-08, so `main` and npm agree.
 
-Two merged, unreleased changes sit on `main`:
-
-- TypeScript 7 build toolchain (PR #15) — no consumer-facing change
-- `action-gh-release` v2 → v3, Node 20 deprecation (PR #16) — CI only,
-  **not yet recorded in the CHANGELOG**
-
-Neither changes published behavior, so nothing forces a release. Options:
-tag **0.5.1** to keep the toolchain move traceable in npm history, or hold
-until the first real change lands and ship them together. Either way, add
-the PR #16 line to `[Unreleased]` first.
+The next substantive change is a candidate pick. The recommendation is to
+take both P1s together: they touch the same surface (what a caller can ask
+the policy, and what the guarded fetch enforces), and both exist because a
+real consumer had to work around their absence.
 
 ## Candidates
 

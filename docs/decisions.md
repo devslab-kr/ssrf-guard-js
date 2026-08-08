@@ -288,7 +288,7 @@ does not mean.
 
 ## JS-011 — TypeScript 7 for the build toolchain only
 
-**Shipped:** merged, unreleased (PR #15, 2026-07-30)
+**Shipped:** 0.5.1 (2026-08-08; merged as PR #15, 2026-07-30)
 
 **Context.** TypeScript 7's native compiler is substantially faster.
 Adopting it in a published library risks changing emitted declarations,

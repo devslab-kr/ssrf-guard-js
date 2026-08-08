@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-08-08
+
+Maintenance release. Nothing in the published package behaves
+differently — both changes are to how it is built and released.
+
 ### Changed
 
 - Build toolchain moved to TypeScript 7 (native compiler): `typescript`
@@ -15,6 +20,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   No consumer-facing change — the published artifacts, type
   declarations, and supported TypeScript versions for consumers are
   unaffected.
+- Release workflow uses `softprops/action-gh-release` v3 (v2 runs on the
+  deprecated Node 20 runtime). CI only.
+
+### Documentation
+
+- Added `docs/roadmap.md` and `docs/decisions.md`, with `.ko.md` twins:
+  what has shipped, what is queued, what is deliberately not planned, and
+  the reasoning behind the design decisions taken through 0.5.0.
 
 ## [0.5.0] - 2026-07-30
 
