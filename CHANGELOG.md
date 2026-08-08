@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-08-09
+
+### Security
+
+- **`::` (the IPv6 unspecified address) and `fec0::/10` (IPv6 site-local)
+  were classified as public.** A hostname resolving to either passed
+  `blockPrivateNetworks`. Connecting to `::` reaches the local host — it
+  is the IPv6 counterpart of `0.0.0.0`, which was already blocked — and
+  `fec0::/10`, though deprecated by RFC 3879, is still routed on networks
+  that predate the deprecation, which is exactly where an internal
+  service lives.
+
+  Both were found by the first [JVM ↔ JS parity audit](docs/parity.md):
+  the Java sibling catches them through `InetAddress.isAnyLocalAddress()`
+  and `isSiteLocalAddress()`, and this side had no equivalent. Measured
+  against the built package rather than inferred from the source.
+
+  Affects `safeFetch`'s DNS checks and any direct use of
+  `isPrivateOrLocalIp`. URL-time checks were unaffected — an IP-literal
+  URL such as `http://[::]/` was already rejected by
+  `rejectIpLiteralHosts`.
+
+### Documentation
+
+- Added [`docs/parity.md`](docs/parity.md) (with a Korean twin): the
+  checklist for comparing this package against the JVM sibling, and the
+  findings of the first audit — including two the Java side is fixing
+  ([ssrf-guard#20](https://github.com/devslab-kr/ssrf-guard/pull/20)) and
+  one deliberately left open.
+
 ## [0.7.0] - 2026-08-08
 
 Two additions, both from the same production integration: a policy

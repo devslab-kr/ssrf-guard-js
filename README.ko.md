@@ -5,7 +5,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-Ready-3178C6?logo=typescript&logoColor=white)
 [![License](https://img.shields.io/badge/License-Apache--2.0-blue)](./LICENSE)
 
-**[문서 사이트](https://devslab-kr.github.io/ssrf-guard-js/ko/)** · [로드맵](docs/roadmap.ko.md) · [결정 로그](docs/decisions.ko.md) · [English](README.md)
+**[문서 사이트](https://devslab-kr.github.io/ssrf-guard-js/ko/)** · [로드맵](docs/roadmap.ko.md) · [결정 로그](docs/decisions.ko.md) · [정합성](docs/parity.ko.md) · [English](README.md)
 
 JavaScript / TypeScript용 SSRF 방어 라이브러리입니다.
 

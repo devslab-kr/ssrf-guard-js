@@ -64,6 +64,27 @@ describe('isPrivateOrLocalIp', () => {
     expect(isPrivateOrLocalIp(ip)).toBe(true);
   });
 
+  // Both found by the JVM-sibling parity audit: the Java side catches
+  // these through InetAddress.isAnyLocalAddress() / isSiteLocalAddress(),
+  // and this side classified them as public.
+  it('blocks the unspecified address, like 0.0.0.0', () => {
+    expect(isPrivateOrLocalIp('::')).toBe(true);
+    expect(isPrivateOrLocalIp('0.0.0.0')).toBe(true);
+  });
+
+  it.each(['fec0::1', 'feff:ffff::1'])('blocks deprecated IPv6 site-local %s', (ip) => {
+    expect(isPrivateOrLocalIp(ip)).toBe(true);
+  });
+
+  // fe80::/10 and fec0::/10 differ only in the two bits this masks, so a
+  // wrong mask would swallow the whole fe00::/8 block. 2001:db8:: also
+  // starts with 0x20, guarding the 6to4 branch next door.
+  it('does not over-reach into neighbouring IPv6 space', () => {
+    expect(isPrivateOrLocalIp('fe00::1')).toBe(false);
+    expect(isPrivateOrLocalIp('fe40::1')).toBe(false);
+    expect(isPrivateOrLocalIp('2001:db8::1')).toBe(false);
+  });
+
   it('blocks IPv4-mapped IPv6 private addresses', () => {
     expect(isPrivateOrLocalIp('::ffff:127.0.0.1')).toBe(true);
     expect(isPrivateOrLocalIp('::ffff:10.0.0.5')).toBe(true);
