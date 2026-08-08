@@ -2,6 +2,7 @@ import { SsrfGuardError } from './error.js';
 import { isPrivateOrLocalIp, normalizeHost } from './net.js';
 import { UrlPolicy, validateUrl } from './policy.js';
 import { followRedirectsGuarded, type FetchImpl } from './redirect.js';
+import { normalizeMaxBytes } from './response-cap.js';
 import type { UrlPolicyOptions } from './types.js';
 
 export interface SafeFetchOptions extends RequestInit {
@@ -23,6 +24,14 @@ export interface SafeFetchOptions extends RequestInit {
    * throws.
    */
   onFinalUrl?: (url: URL) => void;
+  /**
+   * Maximum response body size in bytes. An oversized body is rejected
+   * with a `blocked_response_size` `SsrfGuardError` — on the declared
+   * `Content-Length` before anything is read, or mid-stream at read
+   * time when the length is absent or understated. Never truncated
+   * silently. Must be a non-negative integer.
+   */
+  maxBytes?: number;
 }
 
 interface DnsAddress {
@@ -163,7 +172,8 @@ export async function safeFetch(
 ): Promise<Response> {
   const urlPolicy = policy instanceof UrlPolicy ? policy : new UrlPolicy(policy);
   const url = validateUrl(input, urlPolicy);
-  const { maxRedirects = 5, pinDns, onFinalUrl, ...requestInit } = init;
+  const { maxRedirects = 5, pinDns, onFinalUrl, maxBytes, ...requestInit } = init;
+  const cap = normalizeMaxBytes(maxBytes);
 
   const undici = pinDns === false ? null : await loadUndici();
   if (pinDns === true && !undici) {
@@ -183,6 +193,7 @@ export async function safeFetch(
     maxRedirects,
     fetchImpl,
     ...(onFinalUrl ? { onFinalUrl } : {}),
+    ...(cap === undefined ? {} : { maxBytes: cap }),
     // Unpinned mode checks DNS before connecting; pinned mode validates inside
     // the connector's lookup, so check and connection share one resolution.
     ...(undici

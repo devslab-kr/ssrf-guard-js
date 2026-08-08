@@ -7,7 +7,8 @@ export {
   looksLikeIpLiteral,
   normalizeHost,
 } from './net.js';
-export { UrlPolicy, validateUrl } from './policy.js';
+export { checkUrl, isUrlAllowed, UrlPolicy, validateUrl } from './policy.js';
+export type { UrlCheckResult } from './policy.js';
 export { guardedFetch, sameSitePolicy } from './guarded-fetch.js';
 export type { GuardedFetchOptions } from './guarded-fetch.js';
 export type { FetchImpl } from './redirect.js';

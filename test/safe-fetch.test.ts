@@ -243,4 +243,24 @@ describe('safeFetch', () => {
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  // The cap lives in the shared redirect loop, so it reaches safeFetch too.
+  // response-cap.test.ts covers the behaviour; this pins the wiring.
+  it('honours maxBytes', async () => {
+    fetchMock.mockResolvedValue(
+      new Response('x'.repeat(500), { headers: { 'content-length': '500' } }),
+    );
+
+    await expect(
+      safeFetch('https://api.example.com/big', policy, { maxBytes: 100 }),
+    ).rejects.toMatchObject({ reason: 'blocked_response_size' });
+  });
+
+  it('rejects an invalid maxBytes before resolving anything', async () => {
+    await expect(
+      safeFetch('https://api.example.com/data', policy, { maxBytes: Number.NaN }),
+    ).rejects.toThrow(TypeError);
+    expect(lookupMock).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });

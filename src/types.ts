@@ -6,6 +6,7 @@ export type BlockReason =
   | 'blocked_userinfo'
   | 'blocked_private_ip'
   | 'blocked_redirect'
+  | 'blocked_response_size'
   | 'blocked_other';
 
 export interface UrlPolicyOptions {
