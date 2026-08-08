@@ -1,7 +1,23 @@
 name: Publish to npm
 
+# Two ways in, one path out.
+#
+#   1. A push to main whose package.json `version` is not on npm yet —
+#      the merge IS the release, and this job creates the vX.Y.Z tag
+#      itself. This is the normal path.
+#   2. Pushing a vX.Y.Z tag by hand — still supported, unchanged.
+#
+# The gate is the npm registry, not the tag: if the version is already
+# published the job is a quiet no-op, so ordinary merges to main (docs,
+# fixes, anything that does not touch `version`) do nothing here. That
+# also makes the job idempotent — re-running it can never double-publish.
+#
+# A tag pushed with GITHUB_TOKEN does not trigger workflows, so the tag
+# this job creates cannot loop back into it.
+
 on:
   push:
+    branches: [main]
     tags:
       - 'v*.*.*'
   workflow_dispatch:
@@ -9,6 +25,10 @@ on:
 permissions:
   contents: write
   id-token: write
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
 
 jobs:
   publish:
@@ -26,25 +46,62 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
+      - name: Decide whether this is a release
+        id: gate
+        run: |
+          set -euo pipefail
+          name="$(node -p "require('./package.json').name")"
+          version="$(node -p "require('./package.json').version")"
+          tag="v$version"
+
+          # A tag push must agree with package.json, or the tag is a lie
+          # about what would be published.
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ] && [ "${GITHUB_REF_NAME}" != "$tag" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match package version $tag"
+            exit 1
+          fi
+
+          published="$(npm view "$name@$version" version 2>/dev/null || true)"
+          if [ -n "$published" ]; then
+            echo "$name@$version is already on npm — nothing to release."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "$name@$version is not on npm — releasing."
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
       - run: pnpm install --frozen-lockfile
+        if: steps.gate.outputs.release == 'true'
 
       - run: pnpm verify
-
-      - name: Check release tag matches package version
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          node -e "const pkg=require('./package.json'); const expected='v'+pkg.version; const actual=process.env.GITHUB_REF_NAME; if (actual !== expected) { console.error('Tag ' + actual + ' does not match package version ' + expected); process.exit(1); }"
+        if: steps.gate.outputs.release == 'true'
 
       - name: Publish package
+        if: steps.gate.outputs.release == 'true'
         run: npm publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      # After the publish, so a failed publish never leaves a tag
+      # claiming a release that does not exist. The reverse gap (published
+      # but untagged) fails loudly on the next run instead of silently
+      # skipping, because the gate reads npm rather than the tag.
+      - name: Tag the release
+        if: steps.gate.outputs.release == 'true' && github.ref_type != 'tag'
+        run: |
+          set -euo pipefail
+          git tag "${{ steps.gate.outputs.tag }}"
+          git push origin "refs/tags/${{ steps.gate.outputs.tag }}"
+
       - name: Extract changelog section
-        if: startsWith(github.ref, 'refs/tags/')
+        if: steps.gate.outputs.release == 'true'
         id: changelog
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="${{ steps.gate.outputs.version }}"
           notes=$(awk -v header="## [$version]" '
             substr($0, 1, length(header)) == header { capture = 1; next }
             capture && substr($0, 1, 4) == "## [" { exit }
@@ -60,8 +117,9 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: steps.gate.outputs.release == 'true'
         uses: softprops/action-gh-release@v3
         with:
-          name: ${{ github.ref_name }}
+          tag_name: ${{ steps.gate.outputs.tag }}
+          name: ${{ steps.gate.outputs.tag }}
           body: ${{ steps.changelog.outputs.body }}

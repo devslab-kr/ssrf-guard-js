@@ -300,24 +300,33 @@ Thrown `SsrfGuardError` instances expose stable `reason` values:
 
 ## Maintainer Release
 
-Publishing is handled by GitHub Actions.
+Publishing is handled by GitHub Actions. It needs an npm automation token as
+the repository secret `NPM_TOKEN`.
 
-1. Add an npm automation token as the repository secret `NPM_TOKEN`.
-2. Bump `version` in `package.json`.
-3. Commit the change.
-4. Create and push a matching tag, for example:
-
-```bash
-git tag v0.5.1
-git push origin main --tags
-```
-
-The `Publish to npm` workflow verifies the package, checks that the tag matches
-`package.json`, then runs:
+**The merge is the release.** Open a PR that bumps `version` in
+`package.json` and adds the matching `CHANGELOG.md` section, and merging it
+to `main` runs `Publish to npm`, which verifies the package, publishes it
+with provenance, creates the `vX.Y.Z` tag, and opens a GitHub Release whose
+notes are that CHANGELOG section:
 
 ```bash
 npm publish --access public --provenance
 ```
+
+The gate is the npm registry, not the tag: if the version in `package.json`
+is already published the workflow is a quiet no-op, so ordinary merges do
+nothing and a re-run can never publish twice.
+
+Pushing a tag by hand still works and does the same thing, minus creating
+the tag:
+
+```bash
+git tag v0.5.1
+git push origin v0.5.1
+```
+
+A hand-pushed tag must match `package.json` — the workflow fails if it
+does not.
 
 ## Family
 

@@ -334,3 +334,46 @@ worse than none — hence the same-session rule.
 
 **Revisit when.** The docs site grows a published planning page and these
 become its source.
+
+---
+
+## JS-013 — The merge is the release
+
+**Date:** 2026-08-08 (shipped with 0.5.1)
+
+**Context.** `Publish to npm` fired only on a `vX.Y.Z` tag push, so a
+release needed a local `git tag` + `git push` after the merge. Everything
+else in the org deploys from a merge to `main` — the docs site in this very
+repo already does. The tag step was also the one part of the flow an agent
+could not perform, so 0.5.1 sat merged and unpublished waiting on a human
+to run one command.
+
+**Decision.** Publish on a push to `main` whose `package.json` `version` is
+not on npm yet. The workflow verifies, publishes, creates the tag itself,
+and opens the GitHub Release from the CHANGELOG section. A hand-pushed tag
+still works unchanged and must still match `package.json`.
+
+**The gate is the npm registry, not the tag.** That choice does the work:
+ordinary merges are a quiet no-op, and the job is idempotent — a re-run
+after a partial failure cannot double-publish. Gating on tag existence
+would have inverted the failure mode: a publish that failed *after* tagging
+would make every later run skip silently, which is the worst possible way
+for a release to break. Tagging therefore happens after the publish
+succeeds; the remaining gap (published but untagged) fails loudly on the
+next run instead of hiding.
+
+**Alternatives.** Keeping the tag trigger and accepting that releases are
+owner-only; `changesets` or `release-please` (a Release PR bot — more
+machinery than a package releasing every few weeks needs); having the
+main-push workflow only create a tag and let the existing tag workflow
+publish — this does not work at all, because a tag pushed with
+`GITHUB_TOKEN` does not trigger workflows.
+
+**Trade-off.** The tag push was the last manual gate before an
+irreversible npm publish, and it is gone. A wrong version number in a
+merged PR now publishes immediately. What is left standing in its place is
+PR review plus `pnpm verify` running before the publish step — weaker than
+a human pausing at the tag, and accepted deliberately for the automation.
+
+**Revisit when.** A bad version reaches npm this way, or the release
+cadence slows enough that the manual gate costs nothing.
