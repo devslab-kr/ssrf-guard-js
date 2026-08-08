@@ -7,6 +7,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-08-08
+
+### Security
+
+- **`safeFetch` performed no DNS checks at all on Bun when DNS pinning was
+  active.** A host that resolved to a private or loopback address was
+  fetched successfully instead of being rejected with
+  `blocked_private_ip`. Node and Deno were never affected.
+
+  Pinned mode enforced the private-IP rule inside `undici`'s
+  `Agent({ connect: { lookup } })` callback, and skipped the pre-connect
+  check on the grounds that the connector would do it. Bun accepts that
+  option and never invokes the callback, so neither check ran. Verified
+  directly: with a live listener on loopback, `safeFetch` returned
+  HTTP 200 on Bun 1.3.3 for a host resolving to `127.0.0.1`.
+
+  The trigger was the **default**. `pinDns` unset pins automatically
+  whenever `undici` is installed, so a Bun user lost the guard without
+  opting into anything — and `pinDns: true`, the hardening option, was
+  the surest way to disable it.
+
+  **Fixed** by always running the pre-connect DNS validation, pinned or
+  not. Pinning remains defence in depth: where the runtime honours the
+  hook it still collapses the check and the socket onto one resolution
+  and closes the rebinding window. Where it does not, the private-IP
+  guard now holds regardless. See
+  [JS-016](docs/decisions.md#js-016--a-guard-may-not-depend-on-the-host-honouring-a-hook).
+
+  **Scope.** Bun only, `safeFetch` only, and only with `undici` present.
+  `guardedFetch`, `validateUrl`, `checkUrl`, and the tool-input guards
+  were unaffected, as were URL-time checks — an IP-literal URL such as
+  `http://127.0.0.1/` was still rejected. Exploiting it required a
+  *hostname* that resolves to a private address: DNS rebinding, an
+  internal hostname, or attacker-controlled DNS — precisely the threat
+  `blockPrivateNetworks` exists to stop.
+
+  **If you run `safeFetch` on Bun, upgrade.** No API or config change is
+  needed.
+
+### Added
+
+- Regression coverage for a runtime that accepts `connect.lookup` and
+  ignores it, so the Node-only test suite can fail on this class of bug
+  instead of passing while the guard is off.
+
 ## [0.6.0] - 2026-08-08
 
 Both additions close gaps found by reading how the first production

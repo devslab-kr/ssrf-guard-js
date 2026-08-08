@@ -15,6 +15,12 @@ export interface SafeFetchOptions extends RequestInit {
    * - `true`: require pinning; throws if `undici` is not installed.
    * - `false`: disable pinning; falls back to check-then-fetch.
    * - unset: pin automatically when `undici` is installed.
+   *
+   * Pinning is defence in depth, never the only check: the pre-connect DNS
+   * validation runs in every mode. Whether pinning actually takes effect
+   * depends on the runtime honouring undici's `connect.lookup` hook — Node
+   * does, Bun does not — so a runtime that ignores it loses the rebinding
+   * protection but keeps the private-IP guard.
    */
   pinDns?: boolean;
   /**
@@ -194,11 +200,13 @@ export async function safeFetch(
     fetchImpl,
     ...(onFinalUrl ? { onFinalUrl } : {}),
     ...(cap === undefined ? {} : { maxBytes: cap }),
-    // Unpinned mode checks DNS before connecting; pinned mode validates inside
-    // the connector's lookup, so check and connection share one resolution.
-    ...(undici
-      ? {}
-      : { beforeHop: (hopUrl: URL) => assertResolvedIpsAllowed(hopUrl, urlPolicy) }),
+    // Always check DNS before connecting, pinned or not. Pinning additionally
+    // validates inside the connector's lookup so the check and the socket share
+    // one resolution, closing the rebinding window — but that callback is a
+    // request, not a guarantee: Bun accepts `Agent({ connect: { lookup } })`
+    // and never calls it, which silently removed every DNS check here when
+    // pinning was on. A guard may not depend on a host honouring a hook.
+    beforeHop: (hopUrl: URL) => assertResolvedIpsAllowed(hopUrl, urlPolicy),
     // Pinned lookups surface SsrfGuardError wrapped in undici's fetch error.
     mapFetchError: (error) => findGuardError(error) ?? error,
     ...(dispatcher ? { extraInit: { dispatcher } } : {}),

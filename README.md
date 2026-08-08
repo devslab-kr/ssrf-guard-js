@@ -172,10 +172,13 @@ separately, leaving a small DNS-rebinding window. Install the optional
 pnpm add undici
 ```
 
-When `undici` is present, `safeFetch` automatically validates the resolved
+When `undici` is present, `safeFetch` *additionally* validates the resolved
 addresses **inside the socket connector**, so the check and the connection
 share a single DNS resolution — the same socket-level pinning the Java Apache
-HttpClient adapter uses. Control it explicitly with the `pinDns` option:
+HttpClient adapter uses. The pre-connect DNS check still runs in every mode:
+pinning narrows the rebinding window, it is never the only check
+([JS-016](docs/decisions.md#js-016--a-guard-may-not-depend-on-the-host-honouring-a-hook)).
+Control it explicitly with the `pinDns` option:
 
 ```ts
 await safeFetch(url, policy, { pinDns: true }); // require pinning (throws without undici)
@@ -186,18 +189,39 @@ Without `undici`, `safeFetch` falls back to check-then-fetch. That is a strong
 guard rail, but use strict allowlists or a dedicated egress service for
 high-risk arbitrary URL crawling.
 
-## Runtime support: Node vs Cloudflare Workers
+## Runtime support: Node, Bun, Deno, Cloudflare Workers
 
 Not every guarantee survives every runtime. Know which half of the package
 you are getting:
 
-| Surface | Node | Cloudflare Workers |
-| --- | --- | --- |
-| `validateUrl` / `UrlPolicy` / `HostPolicy` | ✅ | ✅ (pure URL/string checks) |
-| `guardToolInput` / `guardToolInputJson` / `createGuardedToolHandler` | ✅ | ✅ |
-| `guardedFetch` + `sameSitePolicy` (URL-time + redirect revalidation) | ✅ | ✅ |
-| `safeFetch` (adds DNS checks) | ✅ | ❌ throws at runtime |
-| DNS pinning via `undici` | ✅ optional | ❌ |
+| Surface | Node | Bun | Deno | Cloudflare Workers |
+| --- | --- | --- | --- | --- |
+| `validateUrl` / `UrlPolicy` / `HostPolicy` | ✅ | ✅ | ✅ | ✅ (pure URL/string checks) |
+| `guardToolInput` / `guardToolInputJson` / `createGuardedToolHandler` | ✅ | ✅ | ✅ | ✅ |
+| `guardedFetch` + `sameSitePolicy` (URL-time + redirect revalidation) | ✅ | ✅ | ✅ | ✅ |
+| `safeFetch` (adds DNS checks) | ✅ | ✅ | ✅ | ❌ throws at runtime |
+| DNS pinning via `undici` | ✅ optional | ⚠️ no effect | ✅ optional | ❌ |
+
+Verified on Node 24, Bun 1.3.3, and Deno 2.9.5 by installing the published
+package and running the public surface on each.
+
+**⚠️ Pinning does nothing on Bun.** Bun accepts undici's
+`Agent({ connect: { lookup } })` and never calls the hook. Pinning is
+therefore inert there — you keep every DNS check, but not the
+rebinding-window closure that pinning exists for. Nothing silently
+weakens: since 0.6.1 the private-IP check runs before connecting in every
+mode, on every runtime ([JS-016](docs/decisions.md#js-016--a-guard-may-not-depend-on-the-host-honouring-a-hook)).
+
+> **Security note for Bun users on `< 0.6.1`:** in those versions pinned
+> mode was the *only* DNS check, so on Bun `safeFetch` performed none at
+> all and would fetch a host resolving to a private address. Because
+> `pinDns` unset pins automatically whenever `undici` is installed, this
+> was the default. Upgrade to 0.6.1; no code change is needed.
+
+**Deno note.** Deno 2.x applies a minimum dependency age (24h by default)
+before it will install a freshly published npm version, so `deno add`
+picks the previous release for a day. That is Deno's supply-chain policy,
+not a packaging problem — wait, or pass `--min-dep-age 0`.
 
 **Why `safeFetch` cannot work in Workers.** It resolves the target with
 `node:dns/promises` `lookup` before connecting. Workers' `node:dns`

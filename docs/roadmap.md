@@ -12,8 +12,10 @@ Sibling library: [`devslab-kr/ssrf-guard`](https://github.com/devslab-kr/ssrf-gu
 
 ## Current state
 
-- **Published:** `@devslab/ssrf-guard-js` **0.6.0** (npm, 2026-08-08)
-- **Suite:** 187 tests across 11 files, green as of 2026-08-08
+- **Published:** `@devslab/ssrf-guard-js` **0.6.1** (npm, 2026-08-08)
+- **Suite:** 191 tests across 12 files, green as of 2026-08-08
+- **Runtimes:** Node 22+, Bun, Deno verified by installing the published
+  package and running the surface on each; Workers for the non-DNS half
 - **Entry points:** root (`.`) and `./vite`
 - **Optional peer:** `undici >=6` (enables DNS pinning for `safeFetch`)
 - **Production consumers:** AskLinq (`devslab-kr/asklinq`) — URL ingestion,
@@ -33,6 +35,7 @@ Sibling library: [`devslab-kr/ssrf-guard`](https://github.com/devslab-kr/ssrf-gu
 | 0.5.0 | 2026-07-30 | ✅ `scanEmbedded` (opt-in mid-string URL extraction), `onFinalUrl` callback, `GuardToolInputOptions` / `SafeFetchOptions` exported |
 | 0.5.1 | 2026-08-08 | ✅ Maintenance: TypeScript 7 build toolchain, `action-gh-release` v3, release-on-version-bump ([JS-013](decisions.md#js-013--the-merge-is-the-release)), this roadmap and the decision log |
 | 0.6.0 | 2026-08-08 | ✅ `checkUrl` / `isUrlAllowed` (non-throwing policy check), `maxBytes` response cap with the new `blocked_response_size` reason |
+| 0.6.1 | 2026-08-08 | ✅ **Security:** `safeFetch` ran no DNS checks on Bun when pinning was active (the default with `undici` installed) — the pre-connect check now runs in every mode ([JS-016](decisions.md#js-016--a-guard-may-not-depend-on-the-host-honouring-a-hook)) |
 
 Two releases came straight from consumer integration feedback: 0.4.0
 (AskLinq had hand-rolled the redirect loop) and 0.5.0 (both options were
@@ -82,23 +85,22 @@ English is the primary and `.ko.md` the translation. The landing page is
 the first thing an npm visitor sees, and it is the one surface a
 non-Korean reader cannot fall back from.
 
-### P2 — say which runtimes are supported, and test them
+### P2 — a CI job per supported runtime
 
-The support table in `README.md` has two columns, Node and Cloudflare
-Workers. Bun and Deno are not excluded by design — they are simply absent
-from it, and CI is a single Node 22 job, so nothing tells us whether they
-work.
+*Mostly closed by 0.6.1.* Bun and Deno are now installed, exercised, and
+listed in the README support table, and asking the question found a
+security bug rather than confirming a guess — pinned mode had removed
+every DNS check on Bun ([JS-016](decisions.md#js-016--a-guard-may-not-depend-on-the-host-honouring-a-hook)).
 
-Measured on 2026-08-08, against the built `dist/` on Bun 1.3.3: the whole
-public surface passes, **including** the two most Node-coupled paths —
-`safeFetch`'s `node:dns/promises` lookup and `pinDns: true`'s `undici`
-`Agent` wiring. Bun already works. What is missing is a CI job proving it
-stays that way and a column in the table saying so. Deno is untested (not
-installed locally); it implements both `node:dns` and `node:url`, so the
-expectation is the same, but the point of this item is to stop
-expecting and start measuring.
+What remains is the part that keeps it true: CI is still a single Node 22
+job, so the Bun and Deno results are a measurement taken once, not a
+guarantee maintained. Add a job per runtime. Note that the regression test
+for JS-016 runs the hostile-runtime case *inside* the Node suite by
+mocking `undici`, so the runtime matrix is defence in depth here rather
+than the only net.
 
-Two things to document while doing it, both currently unstated:
+Two things already documented in the README that this item should keep in
+view:
 
 - **`node:url` is a static import**, not a lazy one. `normalizeHost` in
   `src/net.ts` calls `domainToASCII`, so the "runs anywhere" half of the
