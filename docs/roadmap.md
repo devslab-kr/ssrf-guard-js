@@ -18,7 +18,7 @@ Sibling library: [`devslab-kr/ssrf-guard`](https://github.com/devslab-kr/ssrf-gu
 - **Optional peer:** `undici >=6` (enables DNS pinning for `safeFetch`)
 - **Production consumers:** AskLinq (`devslab-kr/asklinq`) — URL ingestion,
   brand-color probe, LLM tool-input guard, and the API bridge executor
-- **Docs site:** <https://devslab-kr.github.io/ssrf-guard-js/> (English only)
+- **Docs site:** <https://devslab-kr.github.io/ssrf-guard-js/> (Korean only)
 
 ## Shipped
 
@@ -76,8 +76,48 @@ root bundle.
 ### P2 — bilingual docs site
 
 `README.md` has a `README.ko.md` and the JVM sibling's mkdocs site is fully
-bilingual; `site/index.html` is English only. Korean parity for the landing
-page.
+bilingual; `site/index.html` is Korean only. English parity for the landing
+page — the gap is the wrong way round from the rest of the repo, where
+English is the primary and `.ko.md` the translation. The landing page is
+the first thing an npm visitor sees, and it is the one surface a
+non-Korean reader cannot fall back from.
+
+### P2 — say which runtimes are supported, and test them
+
+The support table in `README.md` has two columns, Node and Cloudflare
+Workers. Bun and Deno are not excluded by design — they are simply absent
+from it, and CI is a single Node 22 job, so nothing tells us whether they
+work.
+
+Measured on 2026-08-08, against the built `dist/` on Bun 1.3.3: the whole
+public surface passes, **including** the two most Node-coupled paths —
+`safeFetch`'s `node:dns/promises` lookup and `pinDns: true`'s `undici`
+`Agent` wiring. Bun already works. What is missing is a CI job proving it
+stays that way and a column in the table saying so. Deno is untested (not
+installed locally); it implements both `node:dns` and `node:url`, so the
+expectation is the same, but the point of this item is to stop
+expecting and start measuring.
+
+Two things to document while doing it, both currently unstated:
+
+- **`node:url` is a static import**, not a lazy one. `normalizeHost` in
+  `src/net.ts` calls `domainToASCII`, so the "runs anywhere" half of the
+  package (`validateUrl`, `guardedFetch`, the tool-input guards) pulls a
+  Node builtin in at module load. Workers therefore needs `nodejs_compat`
+  for `validateUrl`, not just for `safeFetch` as the README implies, and
+  a browser bundle needs the bundler to supply it.
+- **Do not "fix" that by swapping in the WHATWG URL parser.** It looks
+  like a drop-in — `new URL('https://' + host).hostname` matched
+  `domainToASCII` on all 17 normal cases tried, punycode, confusables
+  (`ⓔxample.com` → `example.com`), trailing dots, and IP literals
+  included. It then diverged on 4 of 15 adversarial ones, every time in
+  the unsafe direction, where `domainToASCII` returns `''` and the URL
+  parser returns a host: `api.example.com:443@evil.com` → `evil.com`,
+  `user@evil.com` → `evil.com`, `127.0.0.1:80` → `127.0.0.1`. A
+  normalizer that resolves a userinfo trick to a bare host is the 0.1.2
+  bypass shape again — two implementations of one filter, drifting (see
+  the parity-audit item below). If the eager import ever has to go, it
+  needs a real differential test, not a find-replace.
 
 ### P3 — recurring JVM ↔ JS parity audit
 

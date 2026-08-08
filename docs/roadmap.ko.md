@@ -18,7 +18,7 @@
 - **선택 peer:** `undici >=6` (`safeFetch`의 DNS 피닝 활성화)
 - **프로덕션 소비자:** AskLinq (`devslab-kr/asklinq`) — URL 인제스트,
   브랜드 컬러 탐지, LLM 툴 입력 가드, API 브리지 실행기
-- **문서 사이트:** <https://devslab-kr.github.io/ssrf-guard-js/> (영어만)
+- **문서 사이트:** <https://devslab-kr.github.io/ssrf-guard-js/> (한국어만)
 
 ## 출시 완료
 
@@ -71,7 +71,44 @@ Workers 위 Hono에서 `guardedFetch`를 직접 부른다. 이 패키지의 Work
 ### P2 — 문서 사이트 이중 언어
 
 `README.md`에는 `README.ko.md`가 있고 JVM 자매의 mkdocs 사이트는 완전한 이중
-언어인데, `site/index.html`은 영어뿐이다. 랜딩 페이지의 한국어 짝.
+언어인데, `site/index.html`은 한국어뿐이다. 랜딩 페이지의 영어 짝 — 이 격차는
+repo의 나머지와 방향이 반대다. 다른 곳은 영어가 원본이고 `.ko.md`가 번역인데
+여기만 거꾸로다. 랜딩 페이지는 npm 방문자가 가장 먼저 보는 화면이고, 한국어를
+읽지 못하는 사람이 물러설 곳이 없는 유일한 표면이다.
+
+### P2 — 지원 런타임을 명시하고, 실제로 테스트한다
+
+`README.md`의 지원 표에는 열이 둘뿐이다 — Node와 Cloudflare Workers. Bun과
+Deno는 의도적으로 제외한 게 아니라 그냥 빠져 있고, CI도 Node 22 단일 잡이라
+동작 여부를 알려주는 게 아무것도 없다.
+
+2026-08-08 빌드된 `dist/`를 Bun 1.3.3에서 실측: 공개 표면 전체가 통과했다.
+가장 Node에 묶여 있는 두 경로 — `safeFetch`의 `node:dns/promises` 조회와
+`pinDns: true`의 `undici` `Agent` 배선 — **까지 포함해서**다. Bun은 이미
+돈다. 없는 것은 그 상태가 유지되는지 확인하는 CI 잡과, 그렇다고 말해주는
+표의 한 열이다. Deno는 미검증(로컬 미설치)이다. `node:dns`와 `node:url`을
+모두 구현하므로 기대치는 같지만, 이 항목의 요점이 기대를 그만두고 측정을
+시작하는 것이다.
+
+작업하면서 함께 문서화할 것 두 가지 — 둘 다 지금은 어디에도 안 적혀 있다:
+
+- **`node:url`은 지연 import가 아니라 정적 import다.** `src/net.ts`의
+  `normalizeHost`가 `domainToASCII`를 부르므로, 패키지의 "어디서나 도는"
+  절반(`validateUrl`, `guardedFetch`, 툴 입력 가드)이 모듈 로드 시점에 Node
+  빌트인을 끌어온다. 따라서 Workers는 README가 암시하는 `safeFetch`뿐 아니라
+  `validateUrl`에도 `nodejs_compat`가 필요하고, 브라우저 번들은 번들러가
+  이걸 공급해줘야 한다.
+- **그렇다고 WHATWG URL 파서로 갈아끼워 "고치지" 말 것.** 드롭인처럼
+  보인다 — `new URL('https://' + host).hostname`은 시도한 정상 케이스 17개에서
+  `domainToASCII`와 전부 일치했다. 퓨니코드·혼동 문자(`ⓔxample.com` →
+  `example.com`)·후행 점·IP 리터럴까지 포함해서다. 그런데 적대적 입력
+  15개 중 4개에서 갈라졌고, **매번 안전하지 않은 방향**이었다.
+  `domainToASCII`가 `''`를 돌려주는데 URL 파서는 호스트를 돌려준다:
+  `api.example.com:443@evil.com` → `evil.com`, `user@evil.com` →
+  `evil.com`, `127.0.0.1:80` → `127.0.0.1`. userinfo 트릭을 맨 호스트로
+  풀어주는 정규화기는 0.1.2 우회와 같은 모양이다 — 하나의 필터를 두 번
+  구현해 서로 어긋나는 것(아래 정합성 점검 항목 참조). 정적 import를 언젠가
+  걷어내야 한다면, 찾아 바꾸기가 아니라 제대로 된 차분 테스트가 필요하다.
 
 ### P3 — JVM ↔ JS 정합성 정기 점검
 
