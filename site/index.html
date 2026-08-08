@@ -158,14 +158,22 @@
       .steps {
         counter-reset: step;
         display: grid;
+        /* minmax(0, …): without it the track's automatic minimum is the
+           min-content of the code blocks, which pushes the page wider than the
+           viewport instead of letting each `pre` scroll on its own. */
+        grid-template-columns: minmax(0, 1fr);
         gap: 16px;
       }
 
       .step {
         display: grid;
-        grid-template-columns: 36px 1fr;
+        grid-template-columns: 36px minmax(0, 1fr);
         gap: 14px;
         align-items: start;
+      }
+
+      .step > div {
+        min-width: 0;
       }
 
       .step::before {
@@ -223,6 +231,13 @@
         background: #edf5ef;
         padding: 12px 14px;
         border-radius: 6px;
+      }
+
+      /* Same pattern as `pre`: the wide content scrolls inside its own box so
+         the page body never scrolls horizontally. */
+      .table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
       }
 
       table {
@@ -581,52 +596,54 @@ if (violation) {
 
       <section>
         <h2>Policy 옵션</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>옵션</th>
-              <th>기본값</th>
-              <th>설명</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><code>exactHosts</code></td>
-              <td><code>[]</code></td>
-              <td>정확히 일치해야 하는 host 목록입니다. 예: <code>api.example.com</code></td>
-            </tr>
-            <tr>
-              <td><code>suffixes</code></td>
-              <td><code>[]</code></td>
-              <td><code>example.com</code>과 모든 하위 도메인을 허용합니다. <code>badexample.com</code>은 허용하지 않습니다.</td>
-            </tr>
-            <tr>
-              <td><code>allowedSchemes</code></td>
-              <td><code>['http', 'https']</code></td>
-              <td>보통 production에서는 <code>['https']</code>로 좁히는 것을 권장합니다.</td>
-            </tr>
-            <tr>
-              <td><code>allowedPorts</code></td>
-              <td><code>[-1, 80, 443]</code></td>
-              <td><code>-1</code>은 URL에 명시 포트가 없는 경우입니다. 예: <code>https://api.example.com/</code></td>
-            </tr>
-            <tr>
-              <td><code>rejectIpLiteralHosts</code></td>
-              <td><code>true</code></td>
-              <td>IP 주소를 host로 직접 쓰는 URL을 차단합니다.</td>
-            </tr>
-            <tr>
-              <td><code>rejectUserInfo</code></td>
-              <td><code>true</code></td>
-              <td><code>https://user:pass@example.com</code> 형태를 차단합니다.</td>
-            </tr>
-            <tr>
-              <td><code>blockPrivateNetworks</code></td>
-              <td><code>true</code></td>
-              <td>DNS 결과가 loopback, private, link-local, metadata IP면 차단합니다.</td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>옵션</th>
+                <th>기본값</th>
+                <th>설명</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>exactHosts</code></td>
+                <td><code>[]</code></td>
+                <td>정확히 일치해야 하는 host 목록입니다. 예: <code>api.example.com</code></td>
+              </tr>
+              <tr>
+                <td><code>suffixes</code></td>
+                <td><code>[]</code></td>
+                <td><code>example.com</code>과 모든 하위 도메인을 허용합니다. <code>badexample.com</code>은 허용하지 않습니다.</td>
+              </tr>
+              <tr>
+                <td><code>allowedSchemes</code></td>
+                <td><code>['http', 'https']</code></td>
+                <td>보통 production에서는 <code>['https']</code>로 좁히는 것을 권장합니다.</td>
+              </tr>
+              <tr>
+                <td><code>allowedPorts</code></td>
+                <td><code>[-1, 80, 443]</code></td>
+                <td><code>-1</code>은 URL에 명시 포트가 없는 경우입니다. 예: <code>https://api.example.com/</code></td>
+              </tr>
+              <tr>
+                <td><code>rejectIpLiteralHosts</code></td>
+                <td><code>true</code></td>
+                <td>IP 주소를 host로 직접 쓰는 URL을 차단합니다.</td>
+              </tr>
+              <tr>
+                <td><code>rejectUserInfo</code></td>
+                <td><code>true</code></td>
+                <td><code>https://user:pass@example.com</code> 형태를 차단합니다.</td>
+              </tr>
+              <tr>
+                <td><code>blockPrivateNetworks</code></td>
+                <td><code>true</code></td>
+                <td>DNS 결과가 loopback, private, link-local, metadata IP면 차단합니다.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section>
