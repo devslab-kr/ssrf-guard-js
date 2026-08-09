@@ -38,69 +38,46 @@
 | 0.6.0 | 2026-08-08 | ✅ `checkUrl` / `isUrlAllowed`(예외 없는 정책 판정), `maxBytes` 응답 상한과 신규 `blocked_response_size` 사유 |
 | 0.6.1 | 2026-08-08 | ✅ **보안:** 피닝이 켜진 Bun에서 `safeFetch`가 DNS 검사를 전혀 하지 않던 문제(`undici` 설치 시 기본 동작) — 연결 전 검사를 모든 모드에서 실행([JS-016](decisions.ko.md#js-016--가드는-호스트가-훅을-존중해-주는-데-기대면-안-된다)) |
 | 0.7.0 | 2026-08-08 | ✅ `singleHostPolicy`(origin 잠금, 포트 포함)과 `./hono`의 `createHonoUrlGuard` ([JS-018](decisions.ko.md#js-018--singlehostpolicy는-포트까지-포함해-origin을-잠근다), [JS-019](decisions.ko.md#js-019--hono-어댑터는-구조적-타이핑으로-쓰고-실제-hono로-검증한다)) |
-| — | 2026-08-09 | ✅ 문서 사이트: 영어 `/`, 한국어 `/ko/` ([JS-017](decisions.ko.md#js-017--랜딩-페이지도-repo의-짝-파일-규약을-따른다)) — 릴리스 아님, 사이트는 `main`에서 배포 |
 | 0.7.1 | 2026-08-09 | ✅ **보안:** `::`와 `fec0::/10`을 공인으로 분류하고 있었음 — 첫 [JVM ↔ JS 정합성 감사](parity.ko.md)에서 발견, 같은 감사가 자바 쪽 [ssrf-guard#20](https://github.com/devslab-kr/ssrf-guard/pull/20)도 열었다 |
+| — | 2026-08-09 | ✅ 문서 사이트: 영어 `/`, 한국어 `/ko/` ([JS-017](decisions.ko.md#js-017--랜딩-페이지도-repo의-짝-파일-규약을-따른다)) — 릴리스 아님, 사이트는 `main`에서 배포 |
+| — | 2026-08-09 | ✅ 첫 JVM ↔ JS 정합성 감사 ([parity.ko.md](parity.ko.md)) — 양쪽 라이브러리에서 4건 수정, 1건 미해결 |
+| — | 2026-08-09 | ✅ [devslab-examples](https://github.com/devslab-kr/devslab-examples)의 `ssrf-guard-js-workers-demo` — 그 repo의 첫 Node 데모 |
 
 두 릴리스는 소비자 통합 피드백에서 직접 나왔다 — 0.4.0(AskLinq가 리다이렉트
 루프를 손으로 짜고 있었다)과 0.5.0(두 옵션 모두 같은 통합에서 요청).
 
 ## 다음
 
-**대기 중인 작업 없음.** 코드 P2 두 건이 2026-08-08에 0.7.0으로 나갔다
-([JS-018](decisions.ko.md#js-018--singlehostpolicy는-포트까지-포함해-origin을-잠근다),
-[JS-019](decisions.ko.md#js-019--hono-어댑터는-구조적-타이핑으로-쓰고-실제-hono로-검증한다)).
-`[Unreleased]`는 비어 있고 `main`과 npm이 일치한다.
+**로드맵이 처음으로 비었다.** P1·P2·P3 항목이 전부 출시됐거나 의도적 비목표다:
 
-P2에 남은 건 문서 사이트 언어 격차이고 P3는 그대로다. 그리고 이번 릴리스들이
-닫은 게 아니라 **만들어낸** 상시 후속 작업이 있다: AskLinq가 D-032에서
-`isUrlAllowed`·`maxBytes`는 소비했지만, `bridge/execute.ts`에서 여전히 단일
-호스트 정책을 손으로 만들고 Hono 라우트에서 `guardedFetch`를 직접 부른다.
-`singleHostPolicy`와 `createHonoUrlGuard`를 채택하기 전까지는 라이브러리만
-API를 갖고 소비자는 우회를 짊어진다.
+| 항목 | 결과 |
+| --- | --- |
+| P1 — 예외 없는 판정, `maxBytes` | 0.6.0 |
+| P2 — `singleHostPolicy`, Hono 미들웨어 | 0.7.0 |
+| P2 — 문서 사이트 이중 언어 | 2026-08-09, 영어 `/`·한국어 `/ko/` |
+| P2 — 지원 런타임별 CI 잡 | Node + Bun + Deno 매트릭스, 전 엔트리 포인트 커버 |
+| P3 — JVM ↔ JS 정합성 감사 | 1회차 실행. 양쪽 라이브러리에서 4건 수정, 1건은 근거와 함께 미해결 |
+| P3 — `devslab-examples`의 JS 데모 | `ssrf-guard-js-workers-demo`, 그 repo의 첫 Node 데모 |
+| P3 — HTTP 클라이언트 어댑터 | 의도적으로 하지 않음 |
+
+**이름이 붙은 남은 작업 하나**는 [parity.ko.md](parity.ko.md)에 있다: OkHttp가
+리다이렉트 홉에서 자기 `Dns` 계층이 보는 것만 재검사한다 — 호스트 허용 목록과
+사설 IP. 그래서 스킴·포트·userinfo·IP-리터럴이 재적용되지 않는다. 잔여 위험은
+들리는 것보다 좁다. 호스트 허용 목록과 사설 IP 필터는 홉마다 여전히 작동하므로,
+빠져나가는 건 **허용된 같은 호스트**의 다른 포트·스킴이거나 userinfo가 붙은
+경우다. 닫으려면 JVM 3.3.0에서 `jdkhttp`가 받은 처리가 필요하다 — 클라이언트
+자신의 추적을 끄고 루프를 직접 돌리기 — 그건 그 어댑터의 계약을 바꾸므로, 이미
+파괴적 변경을 하나 실은 릴리스에 얹지 말고 자기 릴리스로 낸다.
+
+이 repo 밖의 상시 후속: AskLinq는 D-034에서 `singleHostPolicy`는 채택했지만
+`createHonoUrlGuard`는 **일부러** 안 했다 — 그 제품이 받는 모든 URL은 곧 거기에
+잠가야 할 URL이라, 미들웨어가 강제할 정적 허용 목록이 없다. 이건 갭이 아니라
+발견이다.
 
 ## 후보
 
-확정이 아니라 제안이며, 우선순위는 소유자 확인을 기다리는 권고다. 각 항목은
-실제 소비자에서 관측된 사실이거나 JVM 자매와의 격차에 근거한다.
-
-### P2 — 지원 런타임별 CI 잡
-
-*0.6.1로 대부분 닫힘.* Bun과 Deno를 실제로 설치해 돌렸고 README 지원 표에도
-올렸다. 그리고 이 질문을 던진 결과 추측이 확인된 게 아니라 **보안 버그가
-나왔다** — 핀 모드가 Bun에서 DNS 검사를 전부 없애고 있었다
-([JS-016](decisions.ko.md#js-016--가드는-호스트가-훅을-존중해-주는-데-기대면-안-된다)).
-
-남은 것은 그 상태를 **유지**하는 부분이다. CI는 여전히 Node 22 단일 잡이라,
-Bun·Deno 결과는 한 번 잰 측정치일 뿐 유지되는 보장이 아니다. 런타임마다 잡을
-추가한다. 단, JS-016 회귀 테스트가 `undici`를 목킹해 적대적 런타임 케이스를
-**Node 스위트 안에서** 재현하므로, 런타임 매트릭스는 유일한 그물이 아니라
-심층 방어다.
-
-README에 이미 문서화됐고 이 항목이 계속 시야에 둘 것 두 가지:
-
-- **`node:url`은 지연 import가 아니라 정적 import다.** `src/net.ts`의
-  `normalizeHost`가 `domainToASCII`를 부르므로, 패키지의 "어디서나 도는"
-  절반(`validateUrl`, `guardedFetch`, 툴 입력 가드)이 모듈 로드 시점에 Node
-  빌트인을 끌어온다. 따라서 Workers는 README가 암시하는 `safeFetch`뿐 아니라
-  `validateUrl`에도 `nodejs_compat`가 필요하고, 브라우저 번들은 번들러가
-  이걸 공급해줘야 한다.
-- **그렇다고 WHATWG URL 파서로 갈아끼워 "고치지" 말 것.** 드롭인처럼
-  보인다 — `new URL('https://' + host).hostname`은 시도한 정상 케이스 17개에서
-  `domainToASCII`와 전부 일치했다. 퓨니코드·혼동 문자(`ⓔxample.com` →
-  `example.com`)·후행 점·IP 리터럴까지 포함해서다. 그런데 적대적 입력
-  15개 중 4개에서 갈라졌고, **매번 안전하지 않은 방향**이었다.
-  `domainToASCII`가 `''`를 돌려주는데 URL 파서는 호스트를 돌려준다:
-  `api.example.com:443@evil.com` → `evil.com`, `user@evil.com` →
-  `evil.com`, `127.0.0.1:80` → `127.0.0.1`. userinfo 트릭을 맨 호스트로
-  풀어주는 정규화기는 0.1.2 우회와 같은 모양이다 — 하나의 필터를 두 번
-  구현해 서로 어긋나는 것(아래 정합성 점검 항목 참조). 정적 import를 언젠가
-  걷어내야 한다면, 찾아 바꾸기가 아니라 제대로 된 차분 테스트가 필요하다.
-
-### P3 — `devslab-examples`의 JS 데모
-
-`devslab-kr/devslab-examples`에는 `ssrf-guard-*` 데모가 8개 있고 전부 JVM이다.
-JS 패키지를 보여주는 것은 없다. Workers 기반 데모라면 `guardedFetch` 쪽 절반의
-런타임 검증도 겸한다.
+대기 중인 것은 없다. 남은 건 의도적으로 하지 않기로 한 하나뿐이고, 같은 질문을
+매번 처음부터 다시 하지 않도록 적어둔다.
 
 ### P3 — HTTP 클라이언트 어댑터 (의도적 보류)
 
