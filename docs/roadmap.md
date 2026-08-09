@@ -38,8 +38,10 @@ Sibling library: [`devslab-kr/ssrf-guard`](https://github.com/devslab-kr/ssrf-gu
 | 0.6.0 | 2026-08-08 | ✅ `checkUrl` / `isUrlAllowed` (non-throwing policy check), `maxBytes` response cap with the new `blocked_response_size` reason |
 | 0.6.1 | 2026-08-08 | ✅ **Security:** `safeFetch` ran no DNS checks on Bun when pinning was active (the default with `undici` installed) — the pre-connect check now runs in every mode ([JS-016](decisions.md#js-016--a-guard-may-not-depend-on-the-host-honouring-a-hook)) |
 | 0.7.0 | 2026-08-08 | ✅ `singleHostPolicy` (origin lock, port included) and `createHonoUrlGuard` at `./hono` ([JS-018](decisions.md#js-018--singlehostpolicy-locks-the-origin-port-included), [JS-019](decisions.md#js-019--the-hono-adapter-is-typed-structurally-and-tested-against-real-hono)) |
-| — | 2026-08-09 | ✅ Docs site: English at `/`, Korean at `/ko/` ([JS-017](decisions.md#js-017--the-landing-page-follows-the-repos-paired-file-convention)) — no release, the site deploys from `main` |
 | 0.7.1 | 2026-08-09 | ✅ **Security:** `::` and `fec0::/10` were classified as public — found by the first [JVM ↔ JS parity audit](parity.md), which also opened [ssrf-guard#20](https://github.com/devslab-kr/ssrf-guard/pull/20) on the Java side |
+| — | 2026-08-09 | ✅ Docs site: English at `/`, Korean at `/ko/` ([JS-017](decisions.md#js-017--the-landing-page-follows-the-repos-paired-file-convention)) — no release, the site deploys from `main` |
+| — | 2026-08-09 | ✅ First JVM ↔ JS parity audit ([parity.md](parity.md)) — four findings fixed across both libraries, one left open |
+| — | 2026-08-09 | ✅ `ssrf-guard-js-workers-demo` in [devslab-examples](https://github.com/devslab-kr/devslab-examples) — that repo's first Node demo |
 
 Two releases came straight from consumer integration feedback: 0.4.0
 (AskLinq had hand-rolled the redirect loop) and 0.5.0 (both options were
@@ -47,66 +49,40 @@ asked for by the same integration).
 
 ## Next
 
-**Nothing is queued.** The two code P2s shipped in 0.7.0 on 2026-08-08
-([JS-018](decisions.md#js-018--singlehostpolicy-locks-the-origin-port-included),
-[JS-019](decisions.md#js-019--the-hono-adapter-is-typed-structurally-and-tested-against-real-hono)),
-so `[Unreleased]` is empty and `main` agrees with npm.
+**The roadmap is empty for the first time.** Every P1, P2 and P3 item is
+either shipped or a deliberate non-goal:
 
-What remains under P2 is the docs-site language gap; P3 is unchanged.
-There is also standing follow-up work these releases create rather than
-close: AskLinq consumed `isUrlAllowed` and `maxBytes` in its D-032, but
-still hand-derives a single-host policy in `bridge/execute.ts` and calls
-`guardedFetch` directly from Hono routes. Until it adopts
-`singleHostPolicy` and `createHonoUrlGuard`, the library has the API and
-the consumer still carries the workaround.
+| Item | Outcome |
+| --- | --- |
+| P1 — non-throwing predicate, `maxBytes` | 0.6.0 |
+| P2 — `singleHostPolicy`, Hono middleware | 0.7.0 |
+| P2 — bilingual docs site | 2026-08-09, English at `/` and Korean at `/ko/` |
+| P2 — a CI job per supported runtime | Node + Bun + Deno matrix, covering every entry point |
+| P3 — JVM ↔ JS parity audit | round 1 run; four findings fixed across both libraries, one left open with its reasoning |
+| P3 — a JS demo in `devslab-examples` | `ssrf-guard-js-workers-demo`, the first Node demo in that repo |
+| P3 — HTTP-client adapters | not planned, on purpose |
+
+**The one named piece of work left** is in [parity.md](parity.md): OkHttp
+re-checks only what its `Dns` layer sees on a redirect hop — the host
+allowlist and private IPs — so scheme, port, userinfo and IP-literal rules
+are not re-applied. The residual risk is narrower than it sounds, since
+the host allowlist and private-IP filter still hold per hop; what gets
+through is the *same allowlisted host* on another port or scheme, or with
+userinfo. Closing it needs the treatment `jdkhttp` got in JVM 3.3.0 —
+disable the client's own following and drive the loop — which changes that
+adapter's contract, so it belongs in its own release rather than stacked
+on one that already carries a breaking change.
+
+Standing follow-up outside this repo: AskLinq adopted `singleHostPolicy`
+in its D-034 but not `createHonoUrlGuard`, and deliberately — every URL it
+accepts is one it must then lock *to*, so there is no static allowlist for
+a middleware to enforce. That is a finding, not a gap.
 
 ## Candidates
 
-Proposals, not commitments — priorities are a recommendation for the owner
-to confirm. Each is backed by something observed in a real consumer or by a
-parity gap with the JVM sibling.
-
-### P2 — a CI job per supported runtime
-
-*Mostly closed by 0.6.1.* Bun and Deno are now installed, exercised, and
-listed in the README support table, and asking the question found a
-security bug rather than confirming a guess — pinned mode had removed
-every DNS check on Bun ([JS-016](decisions.md#js-016--a-guard-may-not-depend-on-the-host-honouring-a-hook)).
-
-What remains is the part that keeps it true: CI is still a single Node 22
-job, so the Bun and Deno results are a measurement taken once, not a
-guarantee maintained. Add a job per runtime. Note that the regression test
-for JS-016 runs the hostile-runtime case *inside* the Node suite by
-mocking `undici`, so the runtime matrix is defence in depth here rather
-than the only net.
-
-Two things already documented in the README that this item should keep in
-view:
-
-- **`node:url` is a static import**, not a lazy one. `normalizeHost` in
-  `src/net.ts` calls `domainToASCII`, so the "runs anywhere" half of the
-  package (`validateUrl`, `guardedFetch`, the tool-input guards) pulls a
-  Node builtin in at module load. Workers therefore needs `nodejs_compat`
-  for `validateUrl`, not just for `safeFetch` as the README implies, and
-  a browser bundle needs the bundler to supply it.
-- **Do not "fix" that by swapping in the WHATWG URL parser.** It looks
-  like a drop-in — `new URL('https://' + host).hostname` matched
-  `domainToASCII` on all 17 normal cases tried, punycode, confusables
-  (`ⓔxample.com` → `example.com`), trailing dots, and IP literals
-  included. It then diverged on 4 of 15 adversarial ones, every time in
-  the unsafe direction, where `domainToASCII` returns `''` and the URL
-  parser returns a host: `api.example.com:443@evil.com` → `evil.com`,
-  `user@evil.com` → `evil.com`, `127.0.0.1:80` → `127.0.0.1`. A
-  normalizer that resolves a userinfo trick to a bare host is the 0.1.2
-  bypass shape again — two implementations of one filter, drifting (see
-  the parity-audit item below). If the eager import ever has to go, it
-  needs a real differential test, not a find-replace.
-
-### P3 — a JS demo in `devslab-examples`
-
-`devslab-kr/devslab-examples` has 8 `ssrf-guard-*` demos, all JVM. Nothing
-demonstrates the JS package. A Workers-based demo would double as a
-runtime check of the `guardedFetch` half.
+Nothing here is queued. What is left is the one thing deliberately not
+planned, kept written down so the question does not get re-asked from
+scratch.
 
 ### P3 — HTTP-client adapters (deferred on purpose)
 
