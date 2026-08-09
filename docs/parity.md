@@ -41,20 +41,27 @@ First run. Findings in both directions.
 
 | # | Finding | Looser side | Fix |
 | --- | --- | --- | --- |
-| 1 | Tool-input scanner collected only `http(s)://`, and discarded other schemes before the policy saw them — `file://`, `gopher://`, `ftp://` passed in silence | **JVM** | [ssrf-guard#20](https://github.com/devslab-kr/ssrf-guard/pull/20), unreleased 3.2.0 |
+| 1 | Tool-input scanner collected only `http(s)://`, and discarded other schemes before the policy saw them — `file://`, `gopher://`, `ftp://` passed in silence | **JVM** | [ssrf-guard#20](https://github.com/devslab-kr/ssrf-guard/pull/20), released in 3.3.0 |
 | 2 | Protocol-relative `//host` not collected at all, though it inherits the caller's scheme at fetch time | **JVM** | same PR |
 | 3 | `::` (IPv6 unspecified) classified as public — the JVM side catches it via `isAnyLocalAddress()` | **JS** | 0.7.1 |
 | 4 | `fec0::/10` (IPv6 site-local, deprecated by RFC 3879 but still routed on older networks) classified as public — the JVM side catches it via `isSiteLocalAddress()` | **JS** | 0.7.1 |
+| 5 | Redirect hops were re-validated differently by every adapter: `httpclient5` scheme + DNS, `okhttp` host + private IP, `jdkhttp` **nothing at all** — so port, userinfo and IP-literal rules were not re-applied on a hop | **JVM** | [ssrf-guard#21](https://github.com/devslab-kr/ssrf-guard/pull/21), released in 3.3.0 — for `jdkhttp` and `httpclient5` |
 
 Findings 1 and 2 are the same shape as the bug that motivated this
 document: a filter at the *collection* stage, letting a URL skip
 validation entirely rather than being rejected by it.
 
+Finding 5 produced a new core type, `RedirectGuard`, holding the one
+definition of what a hop must pass. The loop cannot move to core the way
+it lives in one place on the JS side — on the JVM each client owns its own
+redirect loop — but the *decision* can, and each adapter improvising it
+was the divergence.
+
 ### Open
 
 | Finding | Looser side | Why it is still open |
 | --- | --- | --- |
-| Redirect hops re-validate scheme + host/DNS only. Port, userinfo and IP-literal rules are not re-applied, so a redirect from an allowlisted host to `https://allowed.example:9999/` — or to a public IP literal — is followed where the JS side blocks it | **JVM** | The JS side runs the full `validateUrl` per hop in one shared loop. The JVM side spreads redirect handling across six client adapters, each delegating to its client's own strategy; fixing it is a design change across all of them, not a patch |
+| **OkHttp** redirect hops still re-check only what the `Dns` layer sees — the host allowlist and private IPs. Scheme, port, userinfo and IP-literal rules are not re-applied | **JVM** | A network interceptor looks like the seam and is not one: OkHttp invokes it **after** the connection is established, so the request has already reached the internal host. Measured, not assumed — the attempt failed with `SocketException: Network is unreachable` against a metadata address, which is the socket having been opened. Closing it needs the `jdkhttp` treatment: disable OkHttp's own following and drive the loop, which changes that adapter's contract |
 
 ### Verified equivalent
 
@@ -82,6 +89,12 @@ what produced the original bug.
 false ::          ← JVM: isAnyLocalAddress() → true
 false fec0::1     ← JVM: isSiteLocalAddress() → true
 ```
+
+Finding 5's *attempted* fix was disproved the same way. An OkHttp network
+interceptor looked like the right seam; the test against a metadata
+address failed with `SocketException: Network is unreachable`, which is
+the socket having been opened before the check ran. A code review would
+have called that interceptor correct.
 
 ## Known-divergent by design
 

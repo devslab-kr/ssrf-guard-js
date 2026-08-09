@@ -38,19 +38,25 @@ URL 수집 필터를 각각 독립적으로 작성했고, 같은 방식으로 �
 
 | # | 발견 | 느슨한 쪽 | 수정 |
 | --- | --- | --- | --- |
-| 1 | 툴 입력 스캐너가 `http(s)://`만 수집하고, 다른 스킴은 정책이 보기 전에 버림 — `file://`·`gopher://`·`ftp://`가 조용히 통과 | **JVM** | [ssrf-guard#20](https://github.com/devslab-kr/ssrf-guard/pull/20), 미출시 3.2.0 |
+| 1 | 툴 입력 스캐너가 `http(s)://`만 수집하고, 다른 스킴은 정책이 보기 전에 버림 — `file://`·`gopher://`·`ftp://`가 조용히 통과 | **JVM** | [ssrf-guard#20](https://github.com/devslab-kr/ssrf-guard/pull/20), 3.3.0으로 출시 |
 | 2 | 프로토콜 상대 `//host`를 아예 수집하지 않음. 페치 시점에 호출자의 스킴을 물려받는데도 | **JVM** | 같은 PR |
 | 3 | `::`(IPv6 unspecified)를 공인으로 분류 — JVM은 `isAnyLocalAddress()`로 잡음 | **JS** | 0.7.1 |
 | 4 | `fec0::/10`(IPv6 site-local, RFC 3879로 폐지됐지만 구형 망에서 여전히 라우팅됨)을 공인으로 분류 — JVM은 `isSiteLocalAddress()`로 잡음 | **JS** | 0.7.1 |
+| 5 | 리다이렉트 홉을 어댑터마다 다르게 재검증: `httpclient5`는 스킴+DNS, `okhttp`는 호스트+사설IP, `jdkhttp`는 **아무것도 안 함** — 포트·userinfo·IP-리터럴이 홉에서 재적용되지 않았다 | **JVM** | [ssrf-guard#21](https://github.com/devslab-kr/ssrf-guard/pull/21), 3.3.0으로 출시 — `jdkhttp`·`httpclient5` 대상 |
 
 1번과 2번은 이 문서를 만들게 한 그 버그와 **같은 형태**다 — *수집* 단계의
 필터가, URL을 검증에서 거부되게 하는 대신 검증 자체를 빠져나가게 한다.
+
+5번은 코어에 새 타입 `RedirectGuard`를 만들어냈다. 홉이 통과해야 할 것의 단일
+정의다. 루프는 JS처럼 한 곳으로 못 옮긴다 — JVM에서는 각 클라이언트가 자기
+루프를 소유한다 — 그러나 **결정**은 옮길 수 있고, 어댑터마다 그걸 즉흥적으로
+정하던 게 곧 어긋남이었다.
 
 ### 미해결
 
 | 발견 | 느슨한 쪽 | 왜 아직 열려 있나 |
 | --- | --- | --- |
-| 리다이렉트 홉이 스킴 + 호스트/DNS만 재검증한다. 포트·userinfo·IP-리터럴 규칙을 다시 적용하지 않으므로, 허용된 호스트에서 `https://allowed.example:9999/`로 — 또는 공인 IP 리터럴로 — 가는 리다이렉트를 따라간다. JS는 막는다 | **JVM** | JS는 공유 루프 하나에서 홉마다 `validateUrl` 전체를 돌린다. JVM은 리다이렉트 처리가 클라이언트 어댑터 6종에 흩어져 각자 자기 클라이언트 전략에 위임한다 — 패치가 아니라 전 어댑터에 걸친 설계 변경이다 |
+| **OkHttp** 리다이렉트 홉은 여전히 `Dns` 계층이 보는 것만 재검사한다 — 호스트 허용 목록과 사설 IP. 스킴·포트·userinfo·IP-리터럴은 재적용되지 않는다 | **JVM** | network interceptor가 그 이음매처럼 보이지만 아니다: OkHttp는 **연결이 맺어진 뒤에** 호출하므로 요청이 이미 내부 호스트에 닿는다. 가정이 아니라 **실측**이다 — 메타데이터 주소를 상대로 시도했더니 `SocketException: Network is unreachable`로 실패했고, 그건 소켓이 열렸다는 뜻이다. 닫으려면 `jdkhttp`와 같은 처리가 필요하다: OkHttp 자신의 추적을 끄고 루프를 직접 돌리는 것 — 그 어댑터의 계약이 바뀐다 |
 
 ### 동등 확인됨
 
@@ -74,6 +80,11 @@ URL 수집 필터를 각각 독립적으로 작성했고, 같은 방식으로 �
 false ::          ← JVM: isAnyLocalAddress() → true
 false fec0::1     ← JVM: isSiteLocalAddress() → true
 ```
+
+5번의 *시도된* 수정도 같은 방식으로 반증됐다. OkHttp network interceptor가
+맞는 이음매처럼 보였지만, 메타데이터 주소 대상 테스트가
+`SocketException: Network is unreachable`로 실패했다 — 검사가 돌기 전에 소켓이
+열렸다는 뜻이다. 코드 리뷰였다면 그 인터셉터를 옳다고 판정했을 것이다.
 
 ## 의도적으로 다른 것
 
