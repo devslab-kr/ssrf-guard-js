@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-08-17
+
+### Security
+
+- Raised the optional `undici` peer floor to security-patched release lines
+  (`^6.28.0 || >=7.29.0`). This prevents package managers from selecting the
+  vulnerable `7.0.0`–`7.28.x` range when they auto-install the peer for
+  `safeFetch` DNS pinning. Updated the verification toolchain to `undici`
+  8.10.0 and Hono 4.13.2 as well. No runtime API or guard behavior changed.
+
 ## [0.7.1] - 2026-08-09
 
 ### Security

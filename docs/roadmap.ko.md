@@ -12,12 +12,12 @@
 
 ## 현재 상태
 
-- **배포:** `@devslab/ssrf-guard-js` **0.7.1** (npm, 2026-08-09)
-- **테스트:** 15개 파일 223개, 2026-08-09 기준 전부 통과
+- **배포:** `@devslab/ssrf-guard-js` **0.7.2** (npm, 2026-08-17)
+- **테스트:** 15개 파일 223개, 2026-08-17 기준 전부 통과
 - **런타임:** Node 22+·Bun·Deno를 배포된 패키지를 실제 설치해 확인, Workers는
   DNS를 뺀 절반
 - **엔트리 포인트:** 루트(`.`)·`./vite`·`./hono`
-- **선택 peer:** `undici >=6` (`safeFetch`의 DNS 피닝 활성화)
+- **선택 peer:** `undici ^6.28.0 || >=7.29.0` (`safeFetch`의 DNS 피닝 활성화)
 - **프로덕션 소비자:** AskLinq (`devslab-kr/asklinq`) — URL 인제스트,
   브랜드 컬러 탐지, LLM 툴 입력 가드, API 브리지 실행기
 - **문서 사이트:** <https://devslab-kr.github.io/ssrf-guard-js/> — 영어,
@@ -39,6 +39,7 @@
 | 0.6.1 | 2026-08-08 | ✅ **보안:** 피닝이 켜진 Bun에서 `safeFetch`가 DNS 검사를 전혀 하지 않던 문제(`undici` 설치 시 기본 동작) — 연결 전 검사를 모든 모드에서 실행([JS-016](decisions.ko.md#js-016--가드는-호스트가-훅을-존중해-주는-데-기대면-안-된다)) |
 | 0.7.0 | 2026-08-08 | ✅ `singleHostPolicy`(origin 잠금, 포트 포함)과 `./hono`의 `createHonoUrlGuard` ([JS-018](decisions.ko.md#js-018--singlehostpolicy는-포트까지-포함해-origin을-잠근다), [JS-019](decisions.ko.md#js-019--hono-어댑터는-구조적-타이핑으로-쓰고-실제-hono로-검증한다)) |
 | 0.7.1 | 2026-08-09 | ✅ **보안:** `::`와 `fec0::/10`을 공인으로 분류하고 있었음 — 첫 [JVM ↔ JS 정합성 감사](parity.ko.md)에서 발견, 같은 감사가 자바 쪽 [ssrf-guard#20](https://github.com/devslab-kr/ssrf-guard/pull/20)도 열었다 |
+| 0.7.2 | 2026-08-17 | ✅ **보안 유지보수:** 취약한 undici 7.0.0–7.28.x peer 해석을 제외하고, 검증 도구를 undici 8.10.0과 Hono 4.13.2로 갱신 |
 | — | 2026-08-09 | ✅ 문서 사이트: 영어 `/`, 한국어 `/ko/` ([JS-017](decisions.ko.md#js-017--랜딩-페이지도-repo의-짝-파일-규약을-따른다)) — 릴리스 아님, 사이트는 `main`에서 배포 |
 | — | 2026-08-09 | ✅ 첫 JVM ↔ JS 정합성 감사 ([parity.ko.md](parity.ko.md)) — 양쪽 라이브러리에서 4건 수정, 1건 미해결 |
 | — | 2026-08-09 | ✅ [devslab-examples](https://github.com/devslab-kr/devslab-examples)의 `ssrf-guard-js-workers-demo` — 그 repo의 첫 Node 데모 |
