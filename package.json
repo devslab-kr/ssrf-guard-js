@@ -1,6 +1,6 @@
 {
   "name": "@devslab/ssrf-guard-js",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "SSRF protection for JavaScript and TypeScript: URL policy validation, private-network blocking, redirect checks, and LLM tool-input guards.",
   "license": "Apache-2.0",
   "type": "module",
@@ -81,7 +81,7 @@
     "ipaddr.js": "^2.2.0"
   },
   "peerDependencies": {
-    "undici": ">=6.0.0"
+    "undici": "^6.28.0 || >=7.29.0"
   },
   "peerDependenciesMeta": {
     "undici": {
@@ -90,10 +90,10 @@
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
-    "hono": "^4.13.1",
+    "hono": "^4.13.2",
     "tsdown": "^0.22.14",
     "typescript": "^7.0.2",
-    "undici": "^8.7.0",
+    "undici": "^8.10.0",
     "vitest": "^3.2.4"
   },
   "publishConfig": {

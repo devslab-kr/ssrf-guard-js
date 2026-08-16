@@ -12,12 +12,12 @@ Sibling library: [`devslab-kr/ssrf-guard`](https://github.com/devslab-kr/ssrf-gu
 
 ## Current state
 
-- **Published:** `@devslab/ssrf-guard-js` **0.7.1** (npm, 2026-08-09)
-- **Suite:** 223 tests across 15 files, green as of 2026-08-09
+- **Published:** `@devslab/ssrf-guard-js` **0.7.2** (npm, 2026-08-17)
+- **Suite:** 223 tests across 15 files, green as of 2026-08-17
 - **Runtimes:** Node 22+, Bun, Deno verified by installing the published
   package and running the surface on each; Workers for the non-DNS half
 - **Entry points:** root (`.`), `./vite`, and `./hono`
-- **Optional peer:** `undici >=6` (enables DNS pinning for `safeFetch`)
+- **Optional peer:** `undici ^6.28.0 || >=7.29.0` (enables DNS pinning for `safeFetch`)
 - **Production consumers:** AskLinq (`devslab-kr/asklinq`) — URL ingestion,
   brand-color probe, LLM tool-input guard, and the API bridge executor
 - **Docs site:** <https://devslab-kr.github.io/ssrf-guard-js/> — English, with
@@ -39,6 +39,7 @@ Sibling library: [`devslab-kr/ssrf-guard`](https://github.com/devslab-kr/ssrf-gu
 | 0.6.1 | 2026-08-08 | ✅ **Security:** `safeFetch` ran no DNS checks on Bun when pinning was active (the default with `undici` installed) — the pre-connect check now runs in every mode ([JS-016](decisions.md#js-016--a-guard-may-not-depend-on-the-host-honouring-a-hook)) |
 | 0.7.0 | 2026-08-08 | ✅ `singleHostPolicy` (origin lock, port included) and `createHonoUrlGuard` at `./hono` ([JS-018](decisions.md#js-018--singlehostpolicy-locks-the-origin-port-included), [JS-019](decisions.md#js-019--the-hono-adapter-is-typed-structurally-and-tested-against-real-hono)) |
 | 0.7.1 | 2026-08-09 | ✅ **Security:** `::` and `fec0::/10` were classified as public — found by the first [JVM ↔ JS parity audit](parity.md), which also opened [ssrf-guard#20](https://github.com/devslab-kr/ssrf-guard/pull/20) on the Java side |
+| 0.7.2 | 2026-08-17 | ✅ **Security maintenance:** excluded vulnerable undici 7.0.0–7.28.x peer resolutions; verification now uses undici 8.10.0 and Hono 4.13.2 |
 | — | 2026-08-09 | ✅ Docs site: English at `/`, Korean at `/ko/` ([JS-017](decisions.md#js-017--the-landing-page-follows-the-repos-paired-file-convention)) — no release, the site deploys from `main` |
 | — | 2026-08-09 | ✅ First JVM ↔ JS parity audit ([parity.md](parity.md)) — four findings fixed across both libraries, one left open |
 | — | 2026-08-09 | ✅ `ssrf-guard-js-workers-demo` in [devslab-examples](https://github.com/devslab-kr/devslab-examples) — that repo's first Node demo |
