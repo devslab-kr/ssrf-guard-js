@@ -20,6 +20,28 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm verify
 
+  # The Workers example moved here from devslab-examples, which built it on
+  # every push. Keeping that coverage is the point: it is the only place the
+  # published package is exercised through a real Hono app at the edge, and a
+  # breaking change should fail here rather than in someone's deploy.
+  example:
+    name: examples/workers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.3
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: examples/workers/pnpm-lock.yaml
+      - working-directory: examples/workers
+        run: pnpm install --frozen-lockfile
+      - working-directory: examples/workers
+        run: pnpm verify
+
   # The unit suite runs on Node only, which is enough for logic but blind to
   # guarantees that depend on the host honouring a hook. JS-016 was a bypass
   # every Node test passed straight through: Node calls undici's
