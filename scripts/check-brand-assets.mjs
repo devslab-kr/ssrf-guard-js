@@ -39,7 +39,7 @@ requireRolloutContract(
 );
 
 const expectedAssets = new Map(
-  checksums.trim().split('\n').map((line) => {
+  checksums.trim().split(/\r?\n/).map((line) => {
     const match = /^([a-f0-9]{64})  (.+)$/.exec(line);
     if (!match) throw new Error(`invalid O03 checksum entry: ${line}`);
     return [match[2], match[1]];
@@ -55,9 +55,14 @@ for (const [relative, expectedHash] of expectedAssets) {
 }
 
 const core = await readFile(asset('glyph-color.svg'), 'utf8');
-expect(core, 'data-oss-project="O03"', 'shared O02/O03 security core registry id');
-expect(core, 'M11 7H21V16C21 21 17.7 24.8 16 26C14.3 24.8 11 21 11 16Z', 'shared security boundary core');
-expect(core, 'M14 16H18', 'shared security boundary interrupt');
+expect(core, 'data-oss-project="O03"', 'O03 registry id');
+expect(core, 'data-layer="q-frame"', 'shared Q frame');
+expect(core, '<rect x="5" y="5" width="16" height="16" rx="2"', 'rear Q frame');
+expect(core, '<rect x="11" y="11" width="16" height="16" rx="2"', 'front Q frame');
+expect(core, 'data-layer="product-route"', 'O03 product route');
+expect(core, 'M13 18H17', 'O03 protected boundary input');
+expect(core, 'M21 18H25', 'O03 protected boundary output');
+expect(core, 'M19 14V22', 'O03 protected boundary guard');
 if (core.includes('data-runtime-layer')) throw new Error('runtime attachment must not be inside the shared security glyph');
 
 const lockup = await readFile(asset('lockup.svg'), 'utf8');
