@@ -2,6 +2,8 @@
 
 [한국어](README.ko.md)
 
+Part of [Open source by DevsLab](https://devslab.kr/brand/open-source/).
+
 SSRF defence on **Cloudflare Workers**, using
 [`@devslab/ssrf-guard-js`](https://github.com/devslab-kr/ssrf-guard-js) —
 the JS/TS sibling of `kr.devslab:ssrf-guard`.

@@ -3,11 +3,28 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ssrf-guard-js</title>
+    <title>ssrf-guard-js | DevsLab 오픈소스</title>
     <meta
       name="description"
-      content="JavaScript and TypeScript SSRF guard: validateUrl, safeFetch, guardedFetch for Workers/edge, and LLM tool input URL guard."
+      content="JavaScript와 TypeScript를 위한 SSRF 가드입니다. URL 정책 검증, guarded fetch, Workers와 edge 런타임 지원을 제공합니다."
     />
+    <link rel="canonical" href="https://devslab-kr.github.io/ssrf-guard-js/ko/" />
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="../favicon.ico" sizes="any" />
+    <link rel="apple-touch-icon" href="../apple-touch-icon.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://devslab-kr.github.io/ssrf-guard-js/ko/" />
+    <meta property="og:title" content="ssrf-guard-js | DevsLab 오픈소스" />
+    <meta property="og:description" content="JavaScript와 TypeScript를 위한 SSRF 가드입니다. URL 정책 검증부터 guarded fetch까지 지원합니다." />
+    <meta property="og:image" content="https://devslab-kr.github.io/ssrf-guard-js/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="ssrf-guard-js O03 보안 경계. DevsLab 오픈소스." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="ssrf-guard-js | DevsLab 오픈소스" />
+    <meta name="twitter:description" content="JavaScript와 TypeScript를 위한 SSRF 가드입니다. URL 정책 검증부터 guarded fetch까지 지원합니다." />
+    <meta name="twitter:image" content="https://devslab-kr.github.io/ssrf-guard-js/og.png" />
+    <meta name="twitter:image:alt" content="ssrf-guard-js O03 보안 경계. DevsLab 오픈소스." />
     <style>
       :root {
         color-scheme: light;
@@ -60,9 +77,29 @@
 
       .brand {
         display: flex;
-        align-items: baseline;
+        align-items: center;
         gap: 10px;
         min-width: 0;
+      }
+
+      .brand-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .brand-link:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 4px;
+        border-radius: 3px;
+      }
+
+      .brand-mark {
+        width: 28px;
+        height: 28px;
+        flex: 0 0 auto;
       }
 
       .brand strong {
@@ -83,6 +120,27 @@
 
       .hero {
         padding: 46px 0 36px;
+      }
+
+      .hero-atmosphere {
+        position: relative;
+        isolation: isolate;
+        overflow: hidden;
+      }
+
+      .hero-atmosphere__glow {
+        position: absolute;
+        inset: -56px -9% -90px 46%;
+        z-index: 0;
+        pointer-events: none;
+        background:
+          radial-gradient(circle at 86% 22%, rgb(14 116 144 / 0.11), transparent 52%),
+          radial-gradient(circle at 74% 66%, rgb(27 107 74 / 0.08), transparent 58%);
+      }
+
+      .hero-atmosphere > :not(.hero-atmosphere__glow) {
+        position: relative;
+        z-index: 1;
       }
 
       h1 {
@@ -267,6 +325,43 @@
         padding: 26px 0;
       }
 
+      @media (prefers-color-scheme: dark) {
+        :root {
+          color-scheme: dark;
+          --bg: #18181b;
+          --ink: #f4f4f5;
+          --muted: #d4d4d8;
+          --line: #3f3f46;
+          --panel: #27272a;
+          --code: #09090b;
+          --code-text: #f4f4f5;
+          --accent: #6ee7b7;
+          --accent-2: #67e8f9;
+        }
+
+        header {
+          background: #18181b;
+        }
+
+        .badge,
+        :not(pre) > code {
+          background: #27272a;
+          color: #f4f4f5;
+        }
+
+        .hero-atmosphere__glow {
+          background:
+            radial-gradient(circle at 86% 22%, rgb(103 232 249 / 0.10), transparent 52%),
+            radial-gradient(circle at 74% 66%, rgb(110 231 183 / 0.08), transparent 58%);
+        }
+      }
+
+      @media (forced-colors: active), print {
+        .hero-atmosphere__glow {
+          display: none;
+        }
+      }
+
       @media (max-width: 760px) {
         h1 {
           font-size: 32px;
@@ -287,7 +382,10 @@
     <header>
       <div class="wrap topbar">
         <div class="brand">
-          <strong>ssrf-guard-js</strong>
+          <a class="brand-link" href="https://devslab.kr/brand/open-source/" aria-label="ssrf-guard-js, DevsLab 오픈소스">
+            <img class="brand-mark" src="../favicon.svg" alt="" aria-hidden="true" />
+            <strong>ssrf-guard-js</strong>
+          </a>
           <span>v__PACKAGE_VERSION__</span>
         </div>
         <nav>
@@ -300,7 +398,8 @@
           <a href="../">English</a>
         </nav>
       </div>
-      <div class="wrap hero">
+      <div class="wrap hero hero-atmosphere" data-atmosphere="project">
+        <div class="hero-atmosphere__glow" aria-hidden="true"></div>
         <h1>사용자가 준 URL을 서버에서 fetch하기 전에 막아야 할 것을 막습니다.</h1>
         <p class="lead">
           `@devslab/ssrf-guard-js`는 TypeScript/JavaScript용 SSRF guard입니다.
@@ -706,7 +805,8 @@ blocked_other</code></pre>
       <div class="wrap">
         Apache-2.0 ·
         <a href="https://github.com/devslab-kr/ssrf-guard-js">GitHub</a> ·
-        <a href="https://www.npmjs.com/package/@devslab/ssrf-guard-js">npm</a>
+        <a href="https://www.npmjs.com/package/@devslab/ssrf-guard-js">npm</a> ·
+        <a href="https://devslab.kr/brand/open-source/">DevsLab 오픈소스</a>
       </div>
     </footer>
 
