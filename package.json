@@ -73,9 +73,10 @@
   "scripts": {
     "build": "tsdown",
     "build:pages": "node scripts/build-pages.mjs",
+    "check:brand": "node scripts/check-brand-assets.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "verify": "pnpm typecheck && pnpm test && pnpm build"
+    "verify": "pnpm typecheck && pnpm test && pnpm build && pnpm check:brand"
   },
   "dependencies": {
     "ipaddr.js": "^2.2.0"
