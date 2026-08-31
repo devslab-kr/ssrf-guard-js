@@ -61,8 +61,7 @@ expect(core, '<rect x="5" y="5" width="16" height="16" rx="2"', 'rear Q frame');
 expect(core, '<rect x="11" y="11" width="16" height="16" rx="2"', 'front Q frame');
 expect(core, 'data-layer="product-route"', 'O03 product route');
 expect(core, 'M13 18H17', 'O03 protected boundary input');
-expect(core, 'M21 18H25', 'O03 protected boundary output');
-expect(core, 'M19 14V22', 'O03 protected boundary guard');
+expect(core, 'M21 14V22', 'O03 protected boundary bar');
 if (core.includes('data-runtime-layer')) throw new Error('runtime attachment must not be inside the shared security glyph');
 
 const lockup = await readFile(asset('lockup.svg'), 'utf8');
