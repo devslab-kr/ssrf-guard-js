@@ -1,0 +1,846 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ssrf-guard-js | Open source by DevsLab</title>
+    <meta
+      name="description"
+      content="JavaScript and TypeScript SSRF guard: validateUrl, safeFetch, guardedFetch for Workers/edge, and LLM tool input URL guard."
+    />
+    <link rel="canonical" href="https://devslab-kr.github.io/ssrf-guard-js/" />
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="favicon.ico" sizes="any" />
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://devslab-kr.github.io/ssrf-guard-js/" />
+    <meta property="og:title" content="ssrf-guard-js | Open source by DevsLab" />
+    <meta property="og:description" content="SSRF protection for JavaScript and TypeScript, from URL policy validation to guarded fetches." />
+    <meta property="og:image" content="https://devslab-kr.github.io/ssrf-guard-js/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="ssrf-guard-js O03 security boundary. Open source by DevsLab." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="ssrf-guard-js | Open source by DevsLab" />
+    <meta name="twitter:description" content="SSRF protection for JavaScript and TypeScript, from URL policy validation to guarded fetches." />
+    <meta name="twitter:image" content="https://devslab-kr.github.io/ssrf-guard-js/og.png" />
+    <meta name="twitter:image:alt" content="ssrf-guard-js O03 security boundary. Open source by DevsLab." />
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f7f7f4;
+        --ink: #20231f;
+        --muted: #62685f;
+        --line: #d9ddd3;
+        --panel: #ffffff;
+        --code: #101411;
+        --code-text: #ecf4e9;
+        --accent: #1b6b4a;
+        --accent-2: #245b8f;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        line-height: 1.6;
+      }
+
+      a {
+        color: var(--accent-2);
+      }
+
+      header {
+        border-bottom: 1px solid var(--line);
+        background: #ffffff;
+      }
+
+      .wrap {
+        width: min(1120px, calc(100% - 32px));
+        margin: 0 auto;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 18px 0;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .brand-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .brand-link:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 4px;
+        border-radius: 3px;
+      }
+
+      .brand-mark {
+        width: 28px;
+        height: 28px;
+        flex: 0 0 auto;
+      }
+
+      .brand strong {
+        font-size: 20px;
+      }
+
+      .brand span {
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      nav {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+        font-size: 14px;
+      }
+
+      .hero {
+        padding: 46px 0 36px;
+      }
+
+      .hero-atmosphere {
+        position: relative;
+        isolation: isolate;
+        overflow: hidden;
+      }
+
+      .hero-atmosphere__glow {
+        position: absolute;
+        inset: -56px -9% -90px 46%;
+        z-index: 0;
+        pointer-events: none;
+        background:
+          radial-gradient(circle at 86% 22%, rgb(14 116 144 / 0.11), transparent 52%),
+          radial-gradient(circle at 74% 66%, rgb(27 107 74 / 0.08), transparent 58%);
+      }
+
+      .hero-atmosphere > :not(.hero-atmosphere__glow) {
+        position: relative;
+        z-index: 1;
+      }
+
+      h1 {
+        margin: 0 0 14px;
+        font-size: 42px;
+        line-height: 1.12;
+        max-width: 880px;
+      }
+
+      .lead {
+        max-width: 820px;
+        margin: 0;
+        color: var(--muted);
+        font-size: 18px;
+      }
+
+      .badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 22px;
+      }
+
+      .badge {
+        border: 1px solid var(--line);
+        background: #fff;
+        padding: 6px 10px;
+        border-radius: 6px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      main {
+        padding: 28px 0 64px;
+      }
+
+      section {
+        margin-top: 36px;
+      }
+
+      h2 {
+        margin: 0 0 12px;
+        font-size: 28px;
+        line-height: 1.25;
+      }
+
+      h3 {
+        margin: 24px 0 10px;
+        font-size: 19px;
+      }
+
+      p {
+        margin: 0 0 12px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 18px;
+      }
+
+      .panel h3 {
+        margin-top: 0;
+      }
+
+      .steps {
+        counter-reset: step;
+        display: grid;
+        /* minmax(0, …): without it the track's automatic minimum is the
+           min-content of the code blocks, which pushes the page wider than the
+           viewport instead of letting each `pre` scroll on its own. */
+        grid-template-columns: minmax(0, 1fr);
+        gap: 16px;
+      }
+
+      .step {
+        display: grid;
+        grid-template-columns: 36px minmax(0, 1fr);
+        gap: 14px;
+        align-items: start;
+      }
+
+      .step > div {
+        min-width: 0;
+      }
+
+      .step::before {
+        counter-increment: step;
+        content: counter(step);
+        width: 32px;
+        height: 32px;
+        display: grid;
+        place-items: center;
+        border-radius: 999px;
+        background: var(--accent);
+        color: white;
+        font-weight: 700;
+      }
+
+      pre {
+        position: relative;
+        margin: 12px 0 0;
+        padding: 16px;
+        overflow-x: auto;
+        border-radius: 8px;
+        background: var(--code);
+        color: var(--code-text);
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      code {
+        font-family:
+          "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      }
+
+      :not(pre) > code {
+        background: #e9ece4;
+        color: #1e2821;
+        border-radius: 4px;
+        padding: 1px 5px;
+      }
+
+      .copy {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        border: 1px solid #526052;
+        background: #1d251f;
+        color: #ffffff;
+        border-radius: 6px;
+        padding: 5px 8px;
+        cursor: pointer;
+        font-size: 12px;
+      }
+
+      .note {
+        border-left: 4px solid var(--accent);
+        background: #edf5ef;
+        padding: 12px 14px;
+        border-radius: 6px;
+      }
+
+      /* Same pattern as `pre`: the wide content scrolls inside its own box so
+         the page body never scrolls horizontally. */
+      .table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+
+      th,
+      td {
+        border-bottom: 1px solid var(--line);
+        padding: 10px 12px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        background: #eef1ea;
+      }
+
+      footer {
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        padding: 26px 0;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          color-scheme: dark;
+          --bg: #18181b;
+          --ink: #f4f4f5;
+          --muted: #d4d4d8;
+          --line: #3f3f46;
+          --panel: #27272a;
+          --code: #09090b;
+          --code-text: #f4f4f5;
+          --accent: #6ee7b7;
+          --accent-2: #67e8f9;
+        }
+
+        header {
+          background: #18181b;
+        }
+
+        .badge,
+        :not(pre) > code {
+          background: #27272a;
+          color: #f4f4f5;
+        }
+
+        .hero-atmosphere__glow {
+          background:
+            radial-gradient(circle at 86% 22%, rgb(103 232 249 / 0.10), transparent 52%),
+            radial-gradient(circle at 74% 66%, rgb(110 231 183 / 0.08), transparent 58%);
+        }
+      }
+
+      @media (forced-colors: active), print {
+        .hero-atmosphere__glow {
+          display: none;
+        }
+      }
+
+      @media (max-width: 760px) {
+        h1 {
+          font-size: 32px;
+        }
+
+        .topbar {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="wrap topbar">
+        <div class="brand">
+          <a class="brand-link" href="https://devslab.kr/brand/open-source/" aria-label="ssrf-guard-js, Open source by DevsLab">
+            <img class="brand-mark" src="favicon.svg" alt="" aria-hidden="true" />
+            <strong>ssrf-guard-js</strong>
+          </a>
+          <span>v0.7.2</span>
+        </div>
+        <nav>
+          <a href="#start">Get started</a>
+          <a href="#api">API</a>
+          <a href="#integrations">Integrations</a>
+          <a href="#llm">LLM Tool</a>
+          <a href="https://www.npmjs.com/package/@devslab/ssrf-guard-js">npm</a>
+          <a href="https://github.com/devslab-kr/ssrf-guard-js">GitHub</a>
+          <a href="ko/">한국어</a>
+        </nav>
+      </div>
+      <div class="wrap hero hero-atmosphere" data-atmosphere="project">
+        <div class="hero-atmosphere__glow" aria-hidden="true"></div>
+        <h1>Stop the fetch you should not make, before your server makes it.</h1>
+        <p class="lead">
+          `@devslab/ssrf-guard-js` is an SSRF guard for TypeScript and JavaScript:
+          host allowlists, private-IP blocking, redirect revalidation, and LLM
+          tool-input scanning. On Node it adds DNS checks and optional pinning
+          (`safeFetch`); on edge runtimes like Cloudflare Workers and browsers it
+          runs URL-time validation plus per-hop redirect checks (`guardedFetch`).
+          Every example below is copy-and-run.
+        </p>
+        <div class="badges">
+          <span class="badge">Node 22+</span>
+          <span class="badge">Workers / Edge</span>
+          <span class="badge">TypeScript ready</span>
+          <span class="badge">Apache-2.0</span>
+          <span class="badge">LLM tool guard</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <section id="start">
+        <h2>Five-minute start</h2>
+        <div class="steps">
+          <div class="step">
+            <div>
+              <h3>Create an empty folder and install the package.</h3>
+              <pre><button class="copy">Copy</button><code>mkdir ssrf-guard-demo
+cd ssrf-guard-demo
+npm init -y
+npm pkg set type=module
+npm install @devslab/ssrf-guard-js</code></pre>
+            </div>
+          </div>
+
+          <div class="step">
+            <div>
+              <h3>Create `demo.mjs` and paste this in.</h3>
+              <pre><button class="copy">Copy</button><code>import { validateUrl } from '@devslab/ssrf-guard-js';
+
+const policy = {
+  exactHosts: ['api.example.com'],
+  allowedSchemes: ['https'],
+  allowedPorts: [-1, 443],
+};
+
+validateUrl('https://api.example.com/v1/users', policy);
+console.log('allowed');
+
+try {
+  validateUrl('http://169.254.169.254/latest/meta-data/', policy);
+} catch (error) {
+  console.log('blocked:', error.reason);
+}</code></pre>
+            </div>
+          </div>
+
+          <div class="step">
+            <div>
+              <h3>Run it.</h3>
+              <pre><button class="copy">Copy</button><code>node demo.mjs</code></pre>
+              <p>Expected output:</p>
+              <pre><button class="copy">Copy</button><code>allowed
+blocked: blocked_ip_literal</code></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>The rules that matter most</h2>
+        <div class="grid">
+          <div class="panel">
+            <h3>1. Fail-closed by default</h3>
+            <p>With no `exactHosts` and no `suffixes` configured, no host is allowed at all.</p>
+          </div>
+          <div class="panel">
+            <h3>2. IP literals are blocked by default</h3>
+            <p>Evasive forms like `127.0.0.1`, `2130706433` and `[::1]` are rejected at the URL stage.</p>
+          </div>
+          <div class="panel">
+            <h3>3. Redirects are re-checked</h3>
+            <p>`safeFetch` blocks a 302 whose Location points at a private IP or a host outside the policy.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="api">
+        <h2>Using the API</h2>
+
+        <h3>`validateUrl(input, policy)`</h3>
+        <p>Check a URL before fetching it. Returns a `URL` on success, throws `SsrfGuardError` otherwise.</p>
+        <pre><button class="copy">Copy</button><code>import { validateUrl } from '@devslab/ssrf-guard-js';
+
+const url = validateUrl('https://api.example.com/data', {
+  exactHosts: ['api.example.com'],
+  allowedSchemes: ['https'],
+  allowedPorts: [-1, 443],
+});
+
+console.log(url.href);</code></pre>
+
+        <h3>`checkUrl(input, policy)` / `isUrlAllowed(input, policy)`</h3>
+        <p>
+          The same checks, asked without exceptions. Use these for the decisions
+          that **surround** a fetch — which links a crawler enqueues, which of a
+          batch of URLs to report as rejected.
+        </p>
+        <pre><button class="copy">Copy</button><code>import { checkUrl, isUrlAllowed } from '@devslab/ssrf-guard-js';
+
+const result = checkUrl(link, policy);
+if (!result.allowed) {
+  console.log(`skipped ${link}: ${result.error.reason}`);
+}
+
+const crawlable = links.filter((link) => isUrlAllowed(link, policy));</code></pre>
+
+        <div class="note">
+          They run the **same code path** as `validateUrl`, so the answer always
+          agrees with what the fetch guards would do — which a hand-written host
+          comparison does not. It is a URL-time answer only: `safeFetch`'s DNS
+          checks have no non-throwing equivalent, because knowing that requires
+          actually resolving.
+        </div>
+
+        <h3>`safeFetch(input, policy, init?)`</h3>
+        <p>A fetch helper with URL validation, DNS private-IP checks, and redirect revalidation.</p>
+        <pre><button class="copy">Copy</button><code>import { safeFetch } from '@devslab/ssrf-guard-js';
+
+const response = await safeFetch('https://api.example.com/data', {
+  exactHosts: ['api.example.com'],
+  allowedSchemes: ['https'],
+  allowedPorts: [-1, 443],
+});
+
+const text = await response.text();
+console.log(text);</code></pre>
+
+        <div class="note">
+          Install the optional `undici` dependency and `safeFetch` pins the DNS
+          check and the socket to a single resolution, closing the DNS-rebinding
+          window (the `pinDns` option). For high-risk crawling of arbitrary URLs,
+          use a strict allowlist or a dedicated guarded egress service.
+        </div>
+
+        <h3>`guardedFetch(input, policy, init?)` — Workers / Edge</h3>
+        <p>
+          A guarded fetch that runs anywhere: `safeFetch` minus the DNS checks.
+          Every redirect hop re-passes the policy, and credential headers are
+          stripped on cross-origin redirects. Use it on runtimes without
+          `dns.lookup`, such as Cloudflare Workers — there the allowlist is the
+          primary control, and an empty one allows nothing (fail-closed).
+        </p>
+        <pre><button class="copy">Copy</button><code>import { guardedFetch } from '@devslab/ssrf-guard-js';
+
+const response = await guardedFetch('https://api.example.com/data', {
+  exactHosts: ['api.example.com'],
+  allowedSchemes: ['https'],
+});</code></pre>
+
+        <div class="note">
+          Both `safeFetch` and `guardedFetch` accept an `onFinalUrl` callback,
+          called with the final validated URL once every redirect hop has been
+          followed. Some fetch implementations (including custom `fetchImpl`s)
+          leave `Response.url` empty, so this callback is the more reliable way to
+          attribute fetched content to its true origin.
+        </div>
+
+        <h3>`maxBytes` — response size cap</h3>
+        <p>
+          Accepted by both `safeFetch` and `guardedFetch`, so a response that
+          streams without end cannot exhaust the caller. It is checked in two
+          places: an oversized `Content-Length` is rejected before a byte is read,
+          and a streaming byte count catches bodies that omit or understate it.
+        </p>
+        <pre><button class="copy">Copy</button><code>import { guardedFetch } from '@devslab/ssrf-guard-js';
+
+const response = await guardedFetch(url, policy, { maxBytes: 2_000_000 });
+const body = await response.text(); // rejects if the body runs past the cap</code></pre>
+
+        <div class="note">
+          Exceeding it raises an `SsrfGuardError` with reason
+          `blocked_response_size` — **never a silent truncation**, which would hand
+          you a partial document with no signal that it is partial. If you want
+          truncation, catch the error and decide that yourself. `maxBytes` must be
+          a non-negative integer; anything else throws a `TypeError` before the
+          request, so a bad env parse cannot quietly switch the cap off.
+        </div>
+
+        <h3>`sameSitePolicy(url, overrides?)`</h3>
+        <p>
+          The policy helper for "crawl the site the user just submitted". It
+          derives the allowlist from the submitted URL and locks the whole fetch —
+          redirects included — to that domain (a leading `www.` is stripped so
+          apex to www redirects survive). To open extra hosts, add them to the
+          overrides' `exactHosts`/`suffixes`; the bypass stays inside the policy.
+        </p>
+        <pre><button class="copy">Copy</button><code>import { guardedFetch, sameSitePolicy } from '@devslab/ssrf-guard-js';
+
+const input = 'https://www.customer-site.example/about';
+const response = await guardedFetch(input, sameSitePolicy(input, {
+  allowedSchemes: ['https'],
+}));</code></pre>
+
+        <h3>`singleHostPolicy(url, overrides?)`</h3>
+        <p>
+          The sibling of `sameSitePolicy`, for the opposite intent. When the
+          endpoint is already known — a registered API base, a webhook target, a
+          configured upstream — it locks the fetch to that URL's **origin**:
+          scheme, host, and port. No `www.` peer, no subdomains.
+        </p>
+        <pre><button class="copy">Copy</button><code>import { guardedFetch, singleHostPolicy } from '@devslab/ssrf-guard-js';
+
+const response = await guardedFetch(target, singleHostPolicy(registeredApiBase));</code></pre>
+
+        <div class="note">
+          Locking the port is the substance of it. The default `allowedPorts` is
+          `[-1, 80, 443]`, so a hand-written `{ exactHosts: [u.hostname] }` derived
+          from a base like `https://api.example.com:8443/v1` **rejects its own base
+          URL** — quietly, and only on the non-standard-port deployments.
+        </div>
+      </section>
+
+      <section id="integrations">
+        <h2>Express / Hono / Vite / LangChain</h2>
+
+        <h3>Hono: Workers-native middleware</h3>
+        <p>
+          Shipped as a separate entry point (`@devslab/ssrf-guard-js/hono`). It is
+          typed against the shape of a Hono context rather than importing Hono, so
+          the package stays dependency-free.
+        </p>
+        <pre><button class="copy">Copy</button><code>import { Hono } from 'hono';
+import { createHonoUrlGuard } from '@devslab/ssrf-guard-js/hono';
+
+const app = new Hono();
+
+app.post('/crawl', createHonoUrlGuard({ suffixes: ['example.com'] }), async (c) => {
+  const { url } = await c.req.json(); // already validated
+  return c.json({ ok: true });
+});</code></pre>
+
+        <div class="note">
+          Bodies scanned: `application/json` (and `+json`) and
+          `application/x-www-form-urlencoded`. **`multipart/form-data` is not
+          scanned** — parsing it would buffer uploaded files inside a check that
+          runs on every request. Hono caches parsed bodies, so the middleware
+          reading the body does not consume it and your handler's `c.req.json()`
+          still resolves (verified against real Hono).
+        </div>
+
+        <h3>Express: one middleware line</h3>
+        <p>Scans URLs in the request body and query, and returns a structured `400` JSON response when it finds a blocked one.</p>
+        <pre><button class="copy">Copy</button><code>import express from 'express';
+import { createExpressUrlGuard } from '@devslab/ssrf-guard-js';
+
+const app = express();
+app.use(express.json());
+
+app.post(
+  '/crawl',
+  createExpressUrlGuard({
+    exactHosts: ['example.com'],
+    suffixes: ['example.com'],
+    allowedSchemes: ['https'],
+  }),
+  async (req, res) => {
+    res.json({ ok: true });
+  },
+);</code></pre>
+
+        <h3>Vite: add the plugin to `vite.config.ts`</h3>
+        <p>
+          Use this when your Vite dev server has SSR/proxy endpoints that receive a
+          URL and then fetch it server-side. It is not a tool for blocking every
+          request a browser makes on its own.
+        </p>
+        <pre><button class="copy">Copy</button><code>import { defineConfig } from 'vite';
+import { ssrfGuardVitePlugin } from '@devslab/ssrf-guard-js/vite';
+
+export default defineConfig({
+  plugins: [
+    ssrfGuardVitePlugin({
+      routes: ['/api/crawl'],
+      policy: {
+        suffixes: ['example.com'],
+        allowedSchemes: ['https'],
+      },
+    }),
+  ],
+});</code></pre>
+        <p>The request below is blocked by the dev-server middleware.</p>
+        <pre><button class="copy">Copy</button><code>/api/crawl?url=http://169.254.169.254/latest/meta-data/</code></pre>
+
+        <h3>LangChain / agent tools: wrap the tool function</h3>
+        <p>Scans the whole object the model passed to the tool, and runs the real tool function only when it is clean.</p>
+        <pre><button class="copy">Copy</button><code>import { DynamicStructuredTool } from '@langchain/core/tools';
+import { z } from 'zod';
+import { createGuardedToolHandler, safeFetch } from '@devslab/ssrf-guard-js';
+
+const policy = {
+  suffixes: ['example.com'],
+  allowedSchemes: ['https'],
+};
+
+export const fetchUrlTool = new DynamicStructuredTool({
+  name: 'fetch_url',
+  description: 'Fetch an allowed URL',
+  schema: z.object({ url: z.string().url() }),
+  func: createGuardedToolHandler(policy, async ({ url }) => {
+    const response = await safeFetch(url, policy);
+    return await response.text();
+  }),
+});</code></pre>
+      </section>
+
+      <section id="llm">
+        <h2>LLM tool-input URL scanning</h2>
+        <p>
+          Checking a top-level `url` field is not enough for LLM tool input: a
+          hostile URL can hide in a nested object, an array, or an explanation
+          string. `guardToolInputJson` walks the entire JSON tree.
+        </p>
+        <pre><button class="copy">Copy</button><code>import { guardToolInputJson } from '@devslab/ssrf-guard-js';
+
+const toolInput = JSON.stringify({
+  request: {
+    target: 'http://169.254.169.254/latest/meta-data/',
+  },
+});
+
+const violation = guardToolInputJson(toolInput, {
+  exactHosts: ['api.example.com'],
+});
+
+if (violation) {
+  console.log(violation);
+  // Hand this string back to the model as the tool result.
+}</code></pre>
+
+        <div class="note">
+          By default only strings whose whole value is a URL are flagged. To also
+          catch a URL buried mid-sentence — `"summarize http://169.254.169.254/
+          please"` — opt into `{ scanEmbedded: true }`. It is strictly additive
+          (everything the base scanner flagged stays flagged) and validates
+          URL-shaped text inside prose and code snippets against the policy too.
+        </div>
+      </section>
+
+      <section>
+        <h2>Policy options</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Option</th>
+                <th>Default</th>
+                <th>What it does</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>exactHosts</code></td>
+                <td><code>[]</code></td>
+                <td>Hosts that must match exactly. For example <code>api.example.com</code>.</td>
+              </tr>
+              <tr>
+                <td><code>suffixes</code></td>
+                <td><code>[]</code></td>
+                <td>Allows <code>example.com</code> and every subdomain of it. Does not allow <code>badexample.com</code>.</td>
+              </tr>
+              <tr>
+                <td><code>allowedSchemes</code></td>
+                <td><code>['http', 'https']</code></td>
+                <td>Narrowing this to <code>['https']</code> is the usual recommendation in production.</td>
+              </tr>
+              <tr>
+                <td><code>allowedPorts</code></td>
+                <td><code>[-1, 80, 443]</code></td>
+                <td><code>-1</code> covers URLs with no explicit port, such as <code>https://api.example.com/</code>.</td>
+              </tr>
+              <tr>
+                <td><code>rejectIpLiteralHosts</code></td>
+                <td><code>true</code></td>
+                <td>Blocks URLs whose host is an IP address.</td>
+              </tr>
+              <tr>
+                <td><code>rejectUserInfo</code></td>
+                <td><code>true</code></td>
+                <td>Blocks the <code>https://user:pass@example.com</code> form.</td>
+              </tr>
+              <tr>
+                <td><code>blockPrivateNetworks</code></td>
+                <td><code>true</code></td>
+                <td>Blocks when DNS resolves to a loopback, private, link-local or metadata address.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Block reasons</h2>
+        <p>`SsrfGuardError.reason` is one of these stable strings.</p>
+        <pre><button class="copy">Copy</button><code>blocked_scheme
+blocked_host
+blocked_port
+blocked_ip_literal
+blocked_userinfo
+blocked_private_ip
+blocked_redirect
+blocked_response_size
+blocked_other</code></pre>
+      </section>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        Apache-2.0 ·
+        <a href="https://github.com/devslab-kr/ssrf-guard-js">GitHub</a> ·
+        <a href="https://www.npmjs.com/package/@devslab/ssrf-guard-js">npm</a> ·
+        <a href="https://devslab.kr/brand/open-source/">Open source by DevsLab</a>
+      </div>
+    <!-- publisher:start -->
+<p class="publisher-attribution">Open source by <a href="https://devslab.kr/">데브스랩(DevsLab)</a>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","@id":"https://devslab.kr/#organization","name":"DevsLab","url":"https://devslab.kr/","alternateName":["데브스랩","devslab"],"sameAs":["https://github.com/devslab-kr","https://devslab-kr.github.io/"]}</script></p>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareSourceCode","@id":"https://github.com/devslab-kr/ssrf-guard-js#software","name":"ssrf-guard-js","url":"https://devslab-kr.github.io/ssrf-guard-js/","codeRepository":"https://github.com/devslab-kr/ssrf-guard-js","publisher":{"@id":"https://devslab.kr/#organization"}}</script>
+<!-- publisher:end -->
+    </footer>
+
+    <script>
+      for (const button of document.querySelectorAll(".copy")) {
+        button.addEventListener("click", async () => {
+          const code = button.parentElement.querySelector("code").innerText;
+          await navigator.clipboard.writeText(code);
+          const old = button.innerText;
+          button.innerText = "Copied";
+          setTimeout(() => {
+            button.innerText = old;
+          }, 1200);
+        });
+      }
+    </script>
+  </body>
+</html>
