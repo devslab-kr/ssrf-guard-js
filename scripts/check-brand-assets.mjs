@@ -125,8 +125,8 @@ for (const [relative, source] of [
 }
 
 for (const [contents, endorsement, header] of [
-  [readme, 'Open source by DevsLab', 'docs/assets/brand/readme-header.png'],
-  [readmeKo, 'DevsLab 오픈소스', 'docs/assets/brand/readme-header.png'],
+  [readme, 'Open source by [데브스랩(DevsLab)](https://devslab.kr/)', 'docs/assets/brand/readme-header.png'],
+  [readmeKo, 'Open source by [데브스랩(DevsLab)](https://devslab.kr/)', 'docs/assets/brand/readme-header.png'],
 ]) {
   expect(contents, header, 'README O03 header');
   expect(contents, '# ssrf-guard-js', 'README visible project H1');

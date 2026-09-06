@@ -1,0 +1,12 @@
+{
+  "name": "ssrf-guard-js-publisher-docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync": "node sync.mjs",
+    "check": "node sync.mjs --check"
+  },
+  "devDependencies": {
+    "@devslab/site-kit": "0.8.0"
+  }
+}

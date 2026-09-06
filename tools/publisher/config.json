@@ -1,0 +1,10 @@
+{
+  "name": "ssrf-guard-js",
+  "kind": "static",
+  "url": "https://devslab-kr.github.io/ssrf-guard-js/",
+  "repository": "https://github.com/devslab-kr/ssrf-guard-js",
+  "pages": [
+    "site/index.html",
+    "site/ko/index.html"
+  ]
+}
