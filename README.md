@@ -2,7 +2,9 @@
 
 # ssrf-guard-js
 
-**[Open source by DevsLab](https://devslab.kr/brand/open-source/)**
+<!-- publisher:start -->
+Open source by [데브스랩(DevsLab)](https://devslab.kr/).
+<!-- publisher:end -->
 
 [![npm](https://img.shields.io/npm/v/%40devslab%2Fssrf-guard-js)](https://www.npmjs.com/package/@devslab/ssrf-guard-js)
 [![CI](https://github.com/devslab-kr/ssrf-guard-js/actions/workflows/ci.yml/badge.svg)](https://github.com/devslab-kr/ssrf-guard-js/actions/workflows/ci.yml)

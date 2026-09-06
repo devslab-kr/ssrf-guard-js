@@ -18,6 +18,17 @@ name: Publish to npm
 on:
   push:
     branches: [main]
+    # Documentation and its verification must not publish the runtime package.
+    # GitHub ignores path filters on tag pushes; manual releases are unchanged.
+    paths-ignore:
+      - 'README*.md'
+      - 'docs/**'
+      - 'site/**'
+      - 'tools/publisher/**'
+      - 'scripts/check-brand-assets.mjs'
+      - '.github/workflows/publisher.yml'
+      - '.github/workflows/pages.yml'
+      - '.github/workflows/publish.yml'
     tags:
       - 'v*.*.*'
   workflow_dispatch:
