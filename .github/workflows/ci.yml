@@ -5,8 +5,14 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  # Superseded PR runs are obsolete; main/release runs retain distinct groups.
+  group: ci-${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   verify:
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,6 +31,7 @@ jobs:
   # published package is exercised through a real Hono app at the edge, and a
   # breaking change should fail here rather than in someone's deploy.
   example:
+    timeout-minutes: 30
     name: examples/workers
     runs-on: ubuntu-latest
     steps:
@@ -48,6 +55,7 @@ jobs:
   # `connect.lookup`, Bun accepts it and never does, so the private-IP check
   # silently vanished there. This job runs the built package on each runtime.
   runtime:
+    timeout-minutes: 60
     name: runtime (${{ matrix.runtime }})
     runs-on: ubuntu-latest
     strategy:
