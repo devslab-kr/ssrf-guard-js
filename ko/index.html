@@ -1,0 +1,832 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ssrf-guard-js | DevsLab 오픈소스</title>
+    <meta
+      name="description"
+      content="JavaScript와 TypeScript를 위한 SSRF 가드입니다. URL 정책 검증, guarded fetch, Workers와 edge 런타임 지원을 제공합니다."
+    />
+    <link rel="canonical" href="https://devslab-kr.github.io/ssrf-guard-js/ko/" />
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="../favicon.ico" sizes="any" />
+    <link rel="apple-touch-icon" href="../apple-touch-icon.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://devslab-kr.github.io/ssrf-guard-js/ko/" />
+    <meta property="og:title" content="ssrf-guard-js | DevsLab 오픈소스" />
+    <meta property="og:description" content="JavaScript와 TypeScript를 위한 SSRF 가드입니다. URL 정책 검증부터 guarded fetch까지 지원합니다." />
+    <meta property="og:image" content="https://devslab-kr.github.io/ssrf-guard-js/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="ssrf-guard-js O03 보안 경계. DevsLab 오픈소스." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="ssrf-guard-js | DevsLab 오픈소스" />
+    <meta name="twitter:description" content="JavaScript와 TypeScript를 위한 SSRF 가드입니다. URL 정책 검증부터 guarded fetch까지 지원합니다." />
+    <meta name="twitter:image" content="https://devslab-kr.github.io/ssrf-guard-js/og.png" />
+    <meta name="twitter:image:alt" content="ssrf-guard-js O03 보안 경계. DevsLab 오픈소스." />
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f7f7f4;
+        --ink: #20231f;
+        --muted: #62685f;
+        --line: #d9ddd3;
+        --panel: #ffffff;
+        --code: #101411;
+        --code-text: #ecf4e9;
+        --accent: #1b6b4a;
+        --accent-2: #245b8f;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        line-height: 1.6;
+      }
+
+      a {
+        color: var(--accent-2);
+      }
+
+      header {
+        border-bottom: 1px solid var(--line);
+        background: #ffffff;
+      }
+
+      .wrap {
+        width: min(1120px, calc(100% - 32px));
+        margin: 0 auto;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 18px 0;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .brand-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .brand-link:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 4px;
+        border-radius: 3px;
+      }
+
+      .brand-mark {
+        width: 28px;
+        height: 28px;
+        flex: 0 0 auto;
+      }
+
+      .brand strong {
+        font-size: 20px;
+      }
+
+      .brand span {
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      nav {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+        font-size: 14px;
+      }
+
+      .hero {
+        padding: 46px 0 36px;
+      }
+
+      .hero-atmosphere {
+        position: relative;
+        isolation: isolate;
+        overflow: hidden;
+      }
+
+      .hero-atmosphere__glow {
+        position: absolute;
+        inset: -56px -9% -90px 46%;
+        z-index: 0;
+        pointer-events: none;
+        background:
+          radial-gradient(circle at 86% 22%, rgb(14 116 144 / 0.11), transparent 52%),
+          radial-gradient(circle at 74% 66%, rgb(27 107 74 / 0.08), transparent 58%);
+      }
+
+      .hero-atmosphere > :not(.hero-atmosphere__glow) {
+        position: relative;
+        z-index: 1;
+      }
+
+      h1 {
+        margin: 0 0 14px;
+        font-size: 42px;
+        line-height: 1.12;
+        max-width: 880px;
+      }
+
+      .lead {
+        max-width: 820px;
+        margin: 0;
+        color: var(--muted);
+        font-size: 18px;
+      }
+
+      .badges {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 22px;
+      }
+
+      .badge {
+        border: 1px solid var(--line);
+        background: #fff;
+        padding: 6px 10px;
+        border-radius: 6px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      main {
+        padding: 28px 0 64px;
+      }
+
+      section {
+        margin-top: 36px;
+      }
+
+      h2 {
+        margin: 0 0 12px;
+        font-size: 28px;
+        line-height: 1.25;
+      }
+
+      h3 {
+        margin: 24px 0 10px;
+        font-size: 19px;
+      }
+
+      p {
+        margin: 0 0 12px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 18px;
+      }
+
+      .panel h3 {
+        margin-top: 0;
+      }
+
+      .steps {
+        counter-reset: step;
+        display: grid;
+        /* minmax(0, …): without it the track's automatic minimum is the
+           min-content of the code blocks, which pushes the page wider than the
+           viewport instead of letting each `pre` scroll on its own. */
+        grid-template-columns: minmax(0, 1fr);
+        gap: 16px;
+      }
+
+      .step {
+        display: grid;
+        grid-template-columns: 36px minmax(0, 1fr);
+        gap: 14px;
+        align-items: start;
+      }
+
+      .step > div {
+        min-width: 0;
+      }
+
+      .step::before {
+        counter-increment: step;
+        content: counter(step);
+        width: 32px;
+        height: 32px;
+        display: grid;
+        place-items: center;
+        border-radius: 999px;
+        background: var(--accent);
+        color: white;
+        font-weight: 700;
+      }
+
+      pre {
+        position: relative;
+        margin: 12px 0 0;
+        padding: 16px;
+        overflow-x: auto;
+        border-radius: 8px;
+        background: var(--code);
+        color: var(--code-text);
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      code {
+        font-family:
+          "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      }
+
+      :not(pre) > code {
+        background: #e9ece4;
+        color: #1e2821;
+        border-radius: 4px;
+        padding: 1px 5px;
+      }
+
+      .copy {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        border: 1px solid #526052;
+        background: #1d251f;
+        color: #ffffff;
+        border-radius: 6px;
+        padding: 5px 8px;
+        cursor: pointer;
+        font-size: 12px;
+      }
+
+      .note {
+        border-left: 4px solid var(--accent);
+        background: #edf5ef;
+        padding: 12px 14px;
+        border-radius: 6px;
+      }
+
+      /* Same pattern as `pre`: the wide content scrolls inside its own box so
+         the page body never scrolls horizontally. */
+      .table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+
+      th,
+      td {
+        border-bottom: 1px solid var(--line);
+        padding: 10px 12px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        background: #eef1ea;
+      }
+
+      footer {
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        padding: 26px 0;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          color-scheme: dark;
+          --bg: #18181b;
+          --ink: #f4f4f5;
+          --muted: #d4d4d8;
+          --line: #3f3f46;
+          --panel: #27272a;
+          --code: #09090b;
+          --code-text: #f4f4f5;
+          --accent: #6ee7b7;
+          --accent-2: #67e8f9;
+        }
+
+        header {
+          background: #18181b;
+        }
+
+        .badge,
+        :not(pre) > code {
+          background: #27272a;
+          color: #f4f4f5;
+        }
+
+        .hero-atmosphere__glow {
+          background:
+            radial-gradient(circle at 86% 22%, rgb(103 232 249 / 0.10), transparent 52%),
+            radial-gradient(circle at 74% 66%, rgb(110 231 183 / 0.08), transparent 58%);
+        }
+      }
+
+      @media (forced-colors: active), print {
+        .hero-atmosphere__glow {
+          display: none;
+        }
+      }
+
+      @media (max-width: 760px) {
+        h1 {
+          font-size: 32px;
+        }
+
+        .topbar {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="wrap topbar">
+        <div class="brand">
+          <a class="brand-link" href="https://devslab.kr/brand/open-source/" aria-label="ssrf-guard-js, DevsLab 오픈소스">
+            <img class="brand-mark" src="../favicon.svg" alt="" aria-hidden="true" />
+            <strong>ssrf-guard-js</strong>
+          </a>
+          <span>v0.7.2</span>
+        </div>
+        <nav>
+          <a href="#start">시작하기</a>
+          <a href="#api">API</a>
+          <a href="#integrations">연동</a>
+          <a href="#llm">LLM Tool</a>
+          <a href="https://www.npmjs.com/package/@devslab/ssrf-guard-js">npm</a>
+          <a href="https://github.com/devslab-kr/ssrf-guard-js">GitHub</a>
+          <a href="../">English</a>
+        </nav>
+      </div>
+      <div class="wrap hero hero-atmosphere" data-atmosphere="project">
+        <div class="hero-atmosphere__glow" aria-hidden="true"></div>
+        <h1>사용자가 준 URL을 서버에서 fetch하기 전에 막아야 할 것을 막습니다.</h1>
+        <p class="lead">
+          `@devslab/ssrf-guard-js`는 TypeScript/JavaScript용 SSRF guard입니다.
+          URL allowlist, private IP 차단, redirect 재검증, LLM tool input 검사를 제공합니다.
+          Node에서는 DNS 검증·pinning까지(`safeFetch`), Cloudflare Workers·브라우저 같은
+          edge 런타임에서는 URL-time 검증 + redirect 재검증(`guardedFetch`)으로 동작합니다.
+          아래 예제는 그대로 복사해서 실행할 수 있습니다.
+        </p>
+        <div class="badges">
+          <span class="badge">Node 22+</span>
+          <span class="badge">Workers / Edge</span>
+          <span class="badge">TypeScript ready</span>
+          <span class="badge">Apache-2.0</span>
+          <span class="badge">LLM tool guard</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <section id="start">
+        <h2>5분 시작하기</h2>
+        <div class="steps">
+          <div class="step">
+            <div>
+              <h3>빈 폴더를 만들고 패키지를 설치합니다.</h3>
+              <pre><button class="copy">Copy</button><code>mkdir ssrf-guard-demo
+cd ssrf-guard-demo
+npm init -y
+npm pkg set type=module
+npm install @devslab/ssrf-guard-js</code></pre>
+            </div>
+          </div>
+
+          <div class="step">
+            <div>
+              <h3>`demo.mjs` 파일을 만들고 아래 코드를 붙여넣습니다.</h3>
+              <pre><button class="copy">Copy</button><code>import { validateUrl } from '@devslab/ssrf-guard-js';
+
+const policy = {
+  exactHosts: ['api.example.com'],
+  allowedSchemes: ['https'],
+  allowedPorts: [-1, 443],
+};
+
+validateUrl('https://api.example.com/v1/users', policy);
+console.log('allowed');
+
+try {
+  validateUrl('http://169.254.169.254/latest/meta-data/', policy);
+} catch (error) {
+  console.log('blocked:', error.reason);
+}</code></pre>
+            </div>
+          </div>
+
+          <div class="step">
+            <div>
+              <h3>실행합니다.</h3>
+              <pre><button class="copy">Copy</button><code>node demo.mjs</code></pre>
+              <p>정상 출력:</p>
+              <pre><button class="copy">Copy</button><code>allowed
+blocked: blocked_ip_literal</code></pre>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>가장 중요한 규칙</h2>
+        <div class="grid">
+          <div class="panel">
+            <h3>1. 기본은 fail-closed</h3>
+            <p>`exactHosts`나 `suffixes`를 설정하지 않으면 어떤 host도 허용하지 않습니다.</p>
+          </div>
+          <div class="panel">
+            <h3>2. IP literal은 기본 차단</h3>
+            <p>`127.0.0.1`, `2130706433`, `[::1]` 같은 우회형 IP를 URL 단계에서 막습니다.</p>
+          </div>
+          <div class="panel">
+            <h3>3. redirect도 다시 검사</h3>
+            <p>`safeFetch`는 302 Location이 private IP나 허용되지 않은 host로 향하면 차단합니다.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="api">
+        <h2>API 사용법</h2>
+
+        <h3>`validateUrl(input, policy)`</h3>
+        <p>URL을 fetch하기 전에 먼저 검사합니다. 통과하면 `URL` 객체를 반환하고, 실패하면 `SsrfGuardError`를 던집니다.</p>
+        <pre><button class="copy">Copy</button><code>import { validateUrl } from '@devslab/ssrf-guard-js';
+
+const url = validateUrl('https://api.example.com/data', {
+  exactHosts: ['api.example.com'],
+  allowedSchemes: ['https'],
+  allowedPorts: [-1, 443],
+});
+
+console.log(url.href);</code></pre>
+
+        <h3>`checkUrl(input, policy)` / `isUrlAllowed(input, policy)`</h3>
+        <p>
+          같은 검사를 예외 없이 물어봅니다. fetch를 **감싸는** 판단 — 크롤러가 어떤 링크를
+          큐에 넣을지, 여러 URL 중 무엇을 거부로 보고할지 — 에 쓰세요.
+        </p>
+        <pre><button class="copy">Copy</button><code>import { checkUrl, isUrlAllowed } from '@devslab/ssrf-guard-js';
+
+const result = checkUrl(link, policy);
+if (!result.allowed) {
+  console.log(`skipped ${link}: ${result.error.reason}`);
+}
+
+const crawlable = links.filter((link) => isUrlAllowed(link, policy));</code></pre>
+
+        <div class="note">
+          `validateUrl`과 **같은 코드 경로**를 탑니다. 그래서 답이 언제나 fetch 가드의
+          판단과 일치합니다 — 손으로 쓴 host 비교는 그렇지 않습니다. 단, URL 시점의
+          답입니다: `safeFetch`의 DNS 검사에는 예외를 던지지 않는 대응물이 없습니다.
+          그걸 알려면 실제로 resolve해야 하기 때문입니다.
+        </div>
+
+        <h3>`safeFetch(input, policy, init?)`</h3>
+        <p>URL 검증, DNS private IP 검사, redirect 재검증을 포함한 fetch helper입니다.</p>
+        <pre><button class="copy">Copy</button><code>import { safeFetch } from '@devslab/ssrf-guard-js';
+
+const response = await safeFetch('https://api.example.com/data', {
+  exactHosts: ['api.example.com'],
+  allowedSchemes: ['https'],
+  allowedPorts: [-1, 443],
+});
+
+const text = await response.text();
+console.log(text);</code></pre>
+
+        <div class="note">
+          optional `undici` 의존성을 설치하면 `safeFetch`가 DNS 검증과 socket 연결을 하나의
+          resolution으로 고정(pinning)해 DNS-rebinding 창을 닫습니다 (`pinDns` 옵션).
+          위험도가 높은 임의 URL 크롤링은 strict allowlist 또는 별도 guarded egress service를 사용하세요.
+        </div>
+
+        <h3>`guardedFetch(input, policy, init?)` — Workers / Edge</h3>
+        <p>
+          `safeFetch`의 DNS 검증을 뺀, 어디서나 도는 guarded fetch입니다. redirect hop마다
+          policy를 다시 통과시키고, cross-origin redirect에서 credential 헤더를 제거합니다.
+          Cloudflare Workers처럼 `dns.lookup`이 없는 런타임에서 쓰세요 — allowlist가 1차
+          방어선이고, 빈 allowlist는 아무것도 허용하지 않습니다 (fail-closed).
+        </p>
+        <pre><button class="copy">Copy</button><code>import { guardedFetch } from '@devslab/ssrf-guard-js';
+
+const response = await guardedFetch('https://api.example.com/data', {
+  exactHosts: ['api.example.com'],
+  allowedSchemes: ['https'],
+});</code></pre>
+
+        <div class="note">
+          `safeFetch`와 `guardedFetch` 모두 `onFinalUrl` 콜백을 받습니다 — 모든 redirect hop을
+          따라간 뒤의 최종 검증 URL로 호출됩니다. 일부 fetch 구현(커스텀 `fetchImpl` 포함)은
+          `Response.url`을 비워 두므로, 가져온 콘텐츠의 실제 출처 라벨링에는 이 콜백이 더
+          신뢰할 수 있습니다.
+        </div>
+
+        <h3>`maxBytes` — 응답 크기 상한</h3>
+        <p>
+          `safeFetch`와 `guardedFetch` 모두 받습니다. 끝없이 흘려보내는 응답이 호출부를
+          고갈시키지 못하게 합니다. 두 군데에서 검사합니다 — `Content-Length`가 상한을
+          넘으면 한 바이트도 읽기 전에 거부하고, 그 헤더를 생략하거나 축소해서 보내는
+          응답은 스트리밍 중 누적 카운트가 잡습니다.
+        </p>
+        <pre><button class="copy">Copy</button><code>import { guardedFetch } from '@devslab/ssrf-guard-js';
+
+const response = await guardedFetch(url, policy, { maxBytes: 2_000_000 });
+const body = await response.text(); // 상한을 넘기면 reject</code></pre>
+
+        <div class="note">
+          초과는 `blocked_response_size` 사유의 `SsrfGuardError`입니다 — **조용한 잘림이
+          아닙니다**. 잘림이었다면 부분 문서를 "부분"이라는 신호 없이 건네주게 됩니다.
+          잘라 쓰려면 에러를 잡아 직접 결정하세요. `maxBytes`는 음이 아닌 정수여야 하고,
+          그 외의 값은 요청 전에 `TypeError`로 던집니다 — 잘못된 env 파싱이 상한을 조용히
+          꺼버리지 않도록.
+        </div>
+
+        <h3>`sameSitePolicy(url, overrides?)`</h3>
+        <p>
+          "사용자가 제출한 자기 사이트 크롤링" 흐름을 위한 policy 헬퍼입니다. 제출된 URL의
+          도메인으로 allowlist를 만들어, redirect를 포함한 fetch 전체를 그 도메인에 잠급니다
+          (`www.`는 벗겨서 apex ↔ www redirect 허용). 특정 host를 더 열고 싶으면 overrides의
+          `exactHosts`/`suffixes`에 추가하면 됩니다 — bypass도 policy 안에서 관리됩니다.
+        </p>
+        <pre><button class="copy">Copy</button><code>import { guardedFetch, sameSitePolicy } from '@devslab/ssrf-guard-js';
+
+const input = 'https://www.customer-site.example/about';
+const response = await guardedFetch(input, sameSitePolicy(input, {
+  allowedSchemes: ['https'],
+}));</code></pre>
+
+        <h3>`singleHostPolicy(url, overrides?)`</h3>
+        <p>
+          `sameSitePolicy`의 형제이고 의도가 반대입니다. 엔드포인트가 이미 정해져 있을 때 —
+          등록된 API base, webhook 대상, 설정된 upstream — 그 URL의 **origin**(스킴 · 호스트 ·
+          포트)에 fetch를 잠급니다. `www.` 짝도, 서브도메인도 없습니다.
+        </p>
+        <pre><button class="copy">Copy</button><code>import { guardedFetch, singleHostPolicy } from '@devslab/ssrf-guard-js';
+
+const response = await guardedFetch(target, singleHostPolicy(registeredApiBase));</code></pre>
+
+        <div class="note">
+          포트를 함께 잠그는 게 핵심입니다. 기본 `allowedPorts`가 `[-1, 80, 443]`이라,
+          `https://api.example.com:8443/v1` 같은 base에서 손으로 만든
+          `{ exactHosts: [u.hostname] }`은 **자기 base URL을 거부합니다** — 조용히, 그리고
+          비표준 포트를 쓰는 배포에서만 터집니다.
+        </div>
+      </section>
+
+      <section id="integrations">
+        <h2>Express / Hono / Vite / LangChain 연동</h2>
+
+        <h3>Hono: Workers 네이티브 middleware</h3>
+        <p>
+          별도 entry point(`@devslab/ssrf-guard-js/hono`)로 제공합니다. Hono를 import하지 않고
+          context의 모양에만 타입을 맞춰서, 패키지는 의존성 0을 유지합니다.
+        </p>
+        <pre><button class="copy">Copy</button><code>import { Hono } from 'hono';
+import { createHonoUrlGuard } from '@devslab/ssrf-guard-js/hono';
+
+const app = new Hono();
+
+app.post('/crawl', createHonoUrlGuard({ suffixes: ['example.com'] }), async (c) => {
+  const { url } = await c.req.json(); // 이미 검증됨
+  return c.json({ ok: true });
+});</code></pre>
+
+        <div class="note">
+          검사하는 body는 `application/json`(및 `+json`)과
+          `application/x-www-form-urlencoded`입니다. **`multipart/form-data`는 검사하지
+          않습니다** — 매 요청마다 도는 검사 안에서 업로드 파일을 버퍼링하게 되기 때문입니다.
+          Hono가 파싱한 body를 캐시하므로 미들웨어가 읽어도 핸들러의 `c.req.json()`은 그대로
+          동작합니다(실제 Hono로 검증).
+        </div>
+
+        <h3>Express: middleware 한 줄 추가</h3>
+        <p>사용자가 보낸 body/query 안의 URL을 검사하고, 위험한 URL이면 `400` JSON 응답을 반환합니다.</p>
+        <pre><button class="copy">Copy</button><code>import express from 'express';
+import { createExpressUrlGuard } from '@devslab/ssrf-guard-js';
+
+const app = express();
+app.use(express.json());
+
+app.post(
+  '/crawl',
+  createExpressUrlGuard({
+    exactHosts: ['example.com'],
+    suffixes: ['example.com'],
+    allowedSchemes: ['https'],
+  }),
+  async (req, res) => {
+    res.json({ ok: true });
+  },
+);</code></pre>
+
+        <h3>Vite: `vite.config.ts`에 plugin 추가</h3>
+        <p>
+          Vite dev server의 SSR/proxy endpoint가 URL을 받아 server-side fetch하는 경우에 사용합니다.
+          브라우저가 직접 외부로 보내는 모든 요청을 막는 도구는 아닙니다.
+        </p>
+        <pre><button class="copy">Copy</button><code>import { defineConfig } from 'vite';
+import { ssrfGuardVitePlugin } from '@devslab/ssrf-guard-js/vite';
+
+export default defineConfig({
+  plugins: [
+    ssrfGuardVitePlugin({
+      routes: ['/api/crawl'],
+      policy: {
+        suffixes: ['example.com'],
+        allowedSchemes: ['https'],
+      },
+    }),
+  ],
+});</code></pre>
+        <p>아래 요청은 dev server middleware에서 차단됩니다.</p>
+        <pre><button class="copy">Copy</button><code>/api/crawl?url=http://169.254.169.254/latest/meta-data/</code></pre>
+
+        <h3>LangChain / Agent Tool: tool 함수를 감싸기</h3>
+        <p>모델이 tool에 넘긴 object 전체를 검사한 뒤, 안전할 때만 실제 tool 함수를 실행합니다.</p>
+        <pre><button class="copy">Copy</button><code>import { DynamicStructuredTool } from '@langchain/core/tools';
+import { z } from 'zod';
+import { createGuardedToolHandler, safeFetch } from '@devslab/ssrf-guard-js';
+
+const policy = {
+  suffixes: ['example.com'],
+  allowedSchemes: ['https'],
+};
+
+export const fetchUrlTool = new DynamicStructuredTool({
+  name: 'fetch_url',
+  description: 'Fetch an allowed URL',
+  schema: z.object({ url: z.string().url() }),
+  func: createGuardedToolHandler(policy, async ({ url }) => {
+    const response = await safeFetch(url, policy);
+    return await response.text();
+  }),
+});</code></pre>
+      </section>
+
+      <section id="llm">
+        <h2>LLM Tool URL 검사</h2>
+        <p>
+          LLM tool input은 top-level `url` 필드만 보면 부족합니다. 공격 URL이 nested object, array,
+          설명 문장 안에 숨을 수 있습니다. `guardToolInputJson`은 JSON 전체를 검사합니다.
+        </p>
+        <pre><button class="copy">Copy</button><code>import { guardToolInputJson } from '@devslab/ssrf-guard-js';
+
+const toolInput = JSON.stringify({
+  request: {
+    target: 'http://169.254.169.254/latest/meta-data/',
+  },
+});
+
+const violation = guardToolInputJson(toolInput, {
+  exactHosts: ['api.example.com'],
+});
+
+if (violation) {
+  console.log(violation);
+  // 이 문자열을 tool 결과로 LLM에게 돌려주면 됩니다.
+}</code></pre>
+
+        <div class="note">
+          기본 동작은 문자열의 전체 값이 URL인 경우만 잡습니다. 긴 문장 한가운데 묻힌 URL —
+          `"summarize http://169.254.169.254/ please"` — 까지 잡으려면
+          `{ scanEmbedded: true }` 옵션을 켜세요. 기본 스캐너가 잡던 것은 전부 그대로 잡고
+          (strictly additive), 산문·코드 스니펫 안의 URL 모양 텍스트도 policy로 검증합니다.
+        </div>
+      </section>
+
+      <section>
+        <h2>Policy 옵션</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>옵션</th>
+                <th>기본값</th>
+                <th>설명</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>exactHosts</code></td>
+                <td><code>[]</code></td>
+                <td>정확히 일치해야 하는 host 목록입니다. 예: <code>api.example.com</code></td>
+              </tr>
+              <tr>
+                <td><code>suffixes</code></td>
+                <td><code>[]</code></td>
+                <td><code>example.com</code>과 모든 하위 도메인을 허용합니다. <code>badexample.com</code>은 허용하지 않습니다.</td>
+              </tr>
+              <tr>
+                <td><code>allowedSchemes</code></td>
+                <td><code>['http', 'https']</code></td>
+                <td>보통 production에서는 <code>['https']</code>로 좁히는 것을 권장합니다.</td>
+              </tr>
+              <tr>
+                <td><code>allowedPorts</code></td>
+                <td><code>[-1, 80, 443]</code></td>
+                <td><code>-1</code>은 URL에 명시 포트가 없는 경우입니다. 예: <code>https://api.example.com/</code></td>
+              </tr>
+              <tr>
+                <td><code>rejectIpLiteralHosts</code></td>
+                <td><code>true</code></td>
+                <td>IP 주소를 host로 직접 쓰는 URL을 차단합니다.</td>
+              </tr>
+              <tr>
+                <td><code>rejectUserInfo</code></td>
+                <td><code>true</code></td>
+                <td><code>https://user:pass@example.com</code> 형태를 차단합니다.</td>
+              </tr>
+              <tr>
+                <td><code>blockPrivateNetworks</code></td>
+                <td><code>true</code></td>
+                <td>DNS 결과가 loopback, private, link-local, metadata IP면 차단합니다.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>차단 이유</h2>
+        <p>`SsrfGuardError.reason`은 아래 문자열 중 하나입니다.</p>
+        <pre><button class="copy">Copy</button><code>blocked_scheme
+blocked_host
+blocked_port
+blocked_ip_literal
+blocked_userinfo
+blocked_private_ip
+blocked_redirect
+blocked_response_size
+blocked_other</code></pre>
+      </section>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        Apache-2.0 ·
+        <a href="https://github.com/devslab-kr/ssrf-guard-js">GitHub</a> ·
+        <a href="https://www.npmjs.com/package/@devslab/ssrf-guard-js">npm</a> ·
+        <a href="https://devslab.kr/brand/open-source/">DevsLab 오픈소스</a>
+      </div>
+    <!-- publisher:start -->
+<p class="publisher-attribution">Open source by <a href="https://devslab.kr/">데브스랩(DevsLab)</a>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","@id":"https://devslab.kr/#organization","name":"DevsLab","url":"https://devslab.kr/","alternateName":["데브스랩","devslab"],"sameAs":["https://github.com/devslab-kr","https://devslab-kr.github.io/"]}</script></p>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareSourceCode","@id":"https://github.com/devslab-kr/ssrf-guard-js#software","name":"ssrf-guard-js","url":"https://devslab-kr.github.io/ssrf-guard-js/","codeRepository":"https://github.com/devslab-kr/ssrf-guard-js","publisher":{"@id":"https://devslab.kr/#organization"}}</script>
+<!-- publisher:end -->
+    </footer>
+
+    <script>
+      for (const button of document.querySelectorAll(".copy")) {
+        button.addEventListener("click", async () => {
+          const code = button.parentElement.querySelector("code").innerText;
+          await navigator.clipboard.writeText(code);
+          const old = button.innerText;
+          button.innerText = "Copied";
+          setTimeout(() => {
+            button.innerText = old;
+          }, 1200);
+        });
+      }
+    </script>
+  </body>
+</html>
