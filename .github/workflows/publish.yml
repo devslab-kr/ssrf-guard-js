@@ -53,7 +53,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24 # npm >= 11.5.1 is required for OIDC trusted publishing; Node 22 bundles npm 10
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
@@ -91,11 +91,12 @@ jobs:
       - run: pnpm verify
         if: steps.gate.outputs.release == 'true'
 
+      # Auth is npm Trusted Publishing (OIDC): the registry trusts this
+      # repo + workflow file via `id-token: write`, so no NPM_TOKEN. A token
+      # in NODE_AUTH_TOKEN would take precedence and bypass OIDC.
       - name: Publish package
         if: steps.gate.outputs.release == 'true'
         run: npm publish --access public --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       # After the publish, so a failed publish never leaves a tag
       # claiming a release that does not exist. The reverse gap (published
